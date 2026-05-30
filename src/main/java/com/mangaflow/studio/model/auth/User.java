@@ -33,7 +33,7 @@ public class User {
 
     private String avatarUrl;
 
-    @Column(length = 500)
+    @Column(columnDefinition = "TEXT")
     private String bio;
 
     @Column(updatable = false)

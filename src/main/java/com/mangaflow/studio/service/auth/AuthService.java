@@ -2,6 +2,7 @@ package com.mangaflow.studio.service.auth;
 
 import com.mangaflow.studio.common.exception.AppException;
 import com.mangaflow.studio.common.security.JwtUtil;
+import com.mangaflow.studio.service.storage.CloudinaryService;
 import com.mangaflow.studio.dto.auth.mapper.UserMapper;
 import com.mangaflow.studio.dto.auth.request.LoginRequest;
 import com.mangaflow.studio.dto.auth.request.RegisterRequest;
@@ -24,6 +25,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final UserMapper userMapper;
+    private final CloudinaryService cloudinaryService;
 
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -84,7 +86,15 @@ public class AuthService {
             user.setDisplayName(request.getDisplayName());
         }
         if (request.getAvatarUrl() != null) {
-            user.setAvatarUrl(request.getAvatarUrl());
+            if (request.getAvatarUrl().isEmpty()) {
+                // ⭐ Xoá avatar — xoá file trên Cloudinary trước, rồi clear DB
+                if (user.getAvatarUrl() != null) {
+                    cloudinaryService.deleteImageByUrl(user.getAvatarUrl());
+                }
+                user.setAvatarUrl(null);
+            } else {
+                user.setAvatarUrl(request.getAvatarUrl());
+            }
         }
         if (request.getBio() != null) {
             user.setBio(request.getBio());
