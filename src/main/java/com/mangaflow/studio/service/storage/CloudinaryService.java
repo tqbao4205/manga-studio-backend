@@ -239,6 +239,95 @@ public class CloudinaryService {
         }
     }
 
+    // ════════════════════════════════════════════════════════════════
+    //  AVATAR METHODS
+    // ════════════════════════════════════════════════════════════════
+
+    /**
+     * Upload ảnh avatar cho user lên Cloudinary.
+     *
+     * Cấu trúc thư mục:
+     *   manga_studio/u{userId}/profile/avatar.jpg
+     *
+     * Transformation: c_fill,w_400,h_400
+     *   - c_fill: crop vuông, giữa trung tâm ảnh
+     *   - w_400,h_400: resize xuống 400x400px
+     *
+     * @param file   File ảnh từ frontend
+     * @param userId ID của user
+     * @return URL của ảnh trên Cloudinary (vd: https://res.cloudinary.com/.../avatar.jpg)
+     */
+    public String uploadAvatar(MultipartFile file, Long userId) {
+        try {
+            String folder = "manga_studio/u" + userId + "/profile";
+
+            Map<?, ?> result = cloudinary.uploader().upload(
+                    file.getBytes(),
+                    ObjectUtils.asMap(
+                            "folder", folder,
+                            "public_id", "avatar",
+                            "resource_type", "image",
+                            "overwrite", true,
+                            "transformation", "c_fill,w_400,h_400"
+                    )
+            );
+
+            return (String) result.get("url");
+
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to upload avatar to Cloudinary", e);
+        }
+    }
+
+    /**
+     * Xoá ảnh trên Cloudinary bằng URL (không cần publicId).
+     *
+     * Tự động parse URL để lấy publicId.
+     *
+     * URL Cloudinary có dạng:
+     *   https://res.cloudinary.com/{cloud}/image/upload/{transform}/v{version}/{publicId}.{ext}
+     *
+     * Ví dụ:
+     *   URL:  https://res.cloudinary.com/dklp7kcl9/image/upload/c_fill,w_400,h_400/v1234/manga_studio/u1/profile/avatar.jpg
+     *   → publicId: "manga_studio/u1/profile/avatar"
+     *
+     * @param imageUrl URL đầy đủ của ảnh trên Cloudinary
+     */
+    public void deleteImageByUrl(String imageUrl) {
+        try {
+            String publicId = extractPublicId(imageUrl);
+            if (publicId != null) {
+                cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to delete image from Cloudinary", e);
+        }
+    }
+
+    /**
+     * Trích xuất publicId từ Cloudinary URL.
+     *
+     * publicId là phần đường dẫn giữa version và đuôi file:
+     *   URL: .../v{version}/{publicId}.{ext}
+     *   → publicId = "manga_studio/u1/profile/avatar"
+     *
+     * @param imageUrl URL Cloudinary đầy đủ
+     * @return publicId hoặc null nếu không parse được
+     */
+    private String extractPublicId(String imageUrl) {
+        if (imageUrl == null || !imageUrl.contains("manga_studio")) return null;
+
+        // Tìm vị trí của "manga_studio"
+        int start = imageUrl.indexOf("manga_studio");
+
+        // Tìm dấu chấm cuối cùng (phân cách đuôi file)
+        int end = imageUrl.lastIndexOf('.');
+
+        if (start == -1 || end == -1 || end <= start) return null;
+
+        return imageUrl.substring(start, end);
+    }
+
     /**
      * ── UploadResult ──
      * Class chứa kết quả upload ảnh lên Cloudinary.
