@@ -4,6 +4,7 @@ import com.mangaflow.studio.common.security.CustomUserDetails;
 import com.mangaflow.studio.dto.page.request.PageBatchReorderRequest;
 import com.mangaflow.studio.dto.page.request.PageReorderRequest;
 import com.mangaflow.studio.dto.page.response.PageResponse;
+import com.mangaflow.studio.service.chapter.ChapterService;
 import com.mangaflow.studio.service.page.PageService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -100,6 +101,7 @@ public class PageController {
      * 📌 final + @RequiredArgsConstructor → Spring tự inject
      */
     private final PageService pageService;
+    private final ChapterService chapterService;
 
     // ════════════════════════════════════════════════════════════════
     // 1. GET PAGES BY CHAPTER — Lấy danh sách pages
@@ -429,6 +431,6 @@ public class PageController {
      * ⚠️ TODO: Cần cập nhật sau khi có Chapter module
      */
     private Long getSeriesIdFromChapter(Long chapterId) {
-        return 1L;
+        return chapterService.getSeriesIdByChapterId(chapterId);
     }
 }
