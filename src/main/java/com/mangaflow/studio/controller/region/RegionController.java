@@ -7,9 +7,6 @@ import com.mangaflow.studio.dto.region.response.RegionResponse;
 import com.mangaflow.studio.service.region.RegionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.ArraySchema;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,22 +22,30 @@ import java.util.List;
 /**
  * ── RegionController ──
  * Controller xử lý tất cả API liên quan đến Region (vùng vẽ trên page).
+ * Là tầng giao tiếp với frontend — nhận HTTP request, gọi Service, trả về response.
  * <p>
- * 📌 Base path: /api/v1 (giống PageController)
+ * 📌 @RestController: Spring Bean — tự động serialize response thành JSON.
+ * 📌 @RequestMapping("/api/v1"): Base path — tất cả endpoint đều bắt đầu bằng /api/v1.
+ * 📌 @RequiredArgsConstructor: Lombok — DI constructor cho RegionService.
  * <p>
  * ══════════════════════════════════════════════════════════════════
  *  DANH SÁCH API:
  * ══════════════════════════════════════════════════════════════════
- *  ┌────────┬──────────────────────────────────────────┬──────────────────────┐
- *  │ Method │ Endpoint                                 │ Chức năng            │
- *  ├────────┼──────────────────────────────────────────┼──────────────────────┤
- *  │ GET    │ /pages/{pageId}/regions                  │ Danh sách regions    │
- *  │ POST   │ /pages/{pageId}/regions                  │ Tạo region mới       │
- *  │ PUT    │ /regions/{id}                            │ Cập nhật region      │
- *  │ PATCH  │ /regions/{id}/status                     │ Đổi trạng thái       │
- *  │ DELETE │ /regions/{id}                            │ Xoá region           │
- *  │ PUT    │ /pages/{pageId}/regions/reorder          │ Sắp xếp lại          │
- *  └────────┴──────────────────────────────────────────┴──────────────────────┘
+ *  ┌────────┬──────────────────────────────────────────┬──────────────────────┬──────────┐
+ *  │ Method │ Endpoint                                 │ Chức năng            │ Role     │
+ *  ├────────┼──────────────────────────────────────────┼──────────────────────┼──────────┤
+ *  │ GET    │ /pages/{pageId}/regions                  │ Danh sách regions    │ ANY      │
+ *  │ POST   │ /pages/{pageId}/regions                  │ Tạo region mới       │ MANAGAKA │
+ *  │ PUT    │ /regions/{id}                            │ Cập nhật region      │ MANAGAKA │
+ *  │ PATCH  │ /regions/{id}/status                     │ Đổi trạng thái       │ MANAGAKA │
+ *  │ DELETE │ /regions/{id}                            │ Xoá region           │ MANAGAKA │
+ *  │ PUT    │ /pages/{pageId}/regions/reorder          │ Sắp xếp lại          │ MANAGAKA │
+ *  └────────┴──────────────────────────────────────────┴──────────────────────┴──────────┘
+ * <p>
+ * 📌 Routes có /pages/{pageId} → cần pageId (thao tác theo page)
+ * 📌 Routes có /regions/{id} → cần regionId (thao tác trực tiếp trên region)
+ * 📌 GET: ai cũng xem được (isAuthenticated)
+ * 📌 POST/PUT/PATCH/DELETE: chỉ MANAGAKA mới được dùng
  */
 @RestController
 @RequestMapping("/api/v1")
@@ -48,12 +53,41 @@ import java.util.List;
 @Tag(name = "Regions", description = "Quản lý regions (vùng vẽ trên page)")
 public class RegionController {
 
+    /**
+     * regionService: Service layer — chứa toàn bộ logic nghiệp vụ region.
+     * Controller chỉ làm nhiệm vụ nhận request, gọi service, trả về response.
+     * Không chứa business logic.
+     */
     private final RegionService regionService;
 
     // ════════════════════════════════════════════════════════════════
-    // 1. GET REGIONS BY PAGE
+    // 1. GET REGIONS BY PAGE — Lấy danh sách regions
     // ════════════════════════════════════════════════════════════════
 
+    /**
+     * GET /api/v1/pages/{pageId}/regions
+     * <p>
+     * 📌 Chức năng: Lấy tất cả regions của 1 page, sắp xếp theo sortOrder.
+     * <p>
+     * 📌 Request:
+     *    GET /api/v1/pages/1/regions
+     * <p>
+     * 📌 Response 200:
+     *    [
+     *      { "id": 1, "regionType": "BACKGROUND", "x": 0, "y": 0, ... },
+     *      { "id": 2, "regionType": "CHARACTER", "x": 50, "y": 100, ... }
+     *    ]
+     * <p>
+     * 📌 @PreAuthorize("isAuthenticated()"):
+     *    - Bất kỳ user nào đã đăng nhập đều xem được
+     *    - Không yêu cầu role đặc biệt
+     * <p>
+     * 📌 @PathVariable Long pageId:
+     *    Lấy pageId từ URL path — VD: /pages/1/regions → pageId = 1
+     *
+     * @param pageId ID của page (lấy từ URL)
+     * @return ResponseEntity chứa danh sách regions (HTTP 200)
+     */
     @Operation(
             summary = "Lấy danh sách regions của 1 page",
             description = "Trả về tất cả regions trong page, sắp xếp theo sortOrder tăng dần (dưới cùng lên trước)."
@@ -67,119 +101,293 @@ public class RegionController {
     public ResponseEntity<List<RegionResponse>> getRegionsByPage(
             @Parameter(description = "ID của page", example = "1")
             @PathVariable Long pageId) {
+        // Gọi service → lấy danh sách regions → trả về HTTP 200
         return ResponseEntity.ok(regionService.getRegionsByPage(pageId));
     }
 
     // ════════════════════════════════════════════════════════════════
-    // 2. CREATE REGION
+    // 2. CREATE REGION — Tạo region mới
     // ════════════════════════════════════════════════════════════════
 
+    /**
+     * POST /api/v1/pages/{pageId}/regions
+     * <p>
+     * 📌 Chức năng: Tạo 1 region mới trên page.
+     * Frontend gửi toạ độ, kích thước, loại region.
+     * <p>
+     * 📌 Request body (JSON):
+     *    {
+     *      "regionType": "CHARACTER",
+     *      "label": "Nhân vật chính",
+     *      "x": 50.0,
+     *      "y": 100.0,
+     *      "width": 200.0,
+     *      "height": 300.0,
+     *      "color": "#FF6B6B"
+     *    }
+     * <p>
+     * 📌 Response 201:
+     *    {
+     *      "id": 3,
+     *      "pageId": 1,
+     *      "regionType": "CHARACTER",
+     *      ...
+     *      "status": "PENDING",
+     *      "sortOrder": 0
+     *    }
+     * <p>
+     * 📌 @PreAuthorize("hasRole('MANAGAKA')"):
+     *    - Chỉ MANAGAKA mới được tạo region
+     *    - Nếu user không có role này → Spring trả về 403 Forbidden
+     * <p>
+     * 📌 @Valid @RequestBody RegionRequest:
+     *    - @Valid: tự động validate các annotation trên DTO
+     *    - Nếu validate fail → Spring trả về 400 Bad Request
+     * <p>
+     * 📌 ResponseEntity.status(HttpStatus.CREATED):
+     *    - 201 Created — chuẩn REST cho resource vừa tạo
+     *
+     * @param pageId  ID của page (lấy từ URL)
+     * @param request DTO chứa thông tin region (body JSON)
+     * @return ResponseEntity chứa region vừa tạo (HTTP 201)
+     */
     @Operation(
             summary = "Tạo region mới trên page",
             description = "Tạo 1 vùng vẽ mới trên page. Chỉ MANAGAKA mới được dùng."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Region đã tạo"),
-            @ApiResponse(responseCode = "400", description = "Dữ liệu không hợp lệ"),
-            @ApiResponse(responseCode = "403", description = "Không có quyền (chỉ MANAGAKA)")
+            @ApiResponse(responseCode = "400", description = "Dữ liệu không hợp lệ (thiếu field, sai kiểu, ...)"),
+            @ApiResponse(responseCode = "403", description = "Không có quyền — chỉ MANAGAKA mới được tạo region")
     })
     @PostMapping("/pages/{pageId}/regions")
     @PreAuthorize("hasRole('MANAGAKA')")
     public ResponseEntity<RegionResponse> createRegion(
             @Parameter(description = "ID của page", example = "1")
             @PathVariable Long pageId,
+
+            @Parameter(description = "Thông tin region cần tạo")
             @Valid @RequestBody RegionRequest request) {
+        // Gọi service → tạo region mới → trả về HTTP 201 Created
         RegionResponse response = regionService.createRegion(pageId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     // ════════════════════════════════════════════════════════════════
-    // 3. UPDATE REGION
+    // 3. UPDATE REGION — Cập nhật region
     // ════════════════════════════════════════════════════════════════
 
+    /**
+     * PUT /api/v1/regions/{id}
+     * <p>
+     * 📌 Chức năng: Cập nhật thông tin region.
+     * Hỗ trợ partial update — chỉ gửi các field muốn thay đổi.
+     * <p>
+     * 📌 Request body (JSON):
+     *    {
+     *      "label": "Tên mới",
+     *      "x": 100.0,
+     *      "y": 200.0
+     *    }
+     *    (Các field không gửi → null → không cập nhật)
+     * <p>
+     * 📌 Response 200:
+     *    {
+     *      "id": 1,
+     *      "label": "Tên mới",
+     *      "x": 100.0,
+     *      "y": 200.0,
+     *      ...
+     *    }
+     * <p>
+     * 📌 Route không có /pages/:
+     *    PUT /regions/{id} — thao tác trực tiếp trên region, không cần pageId
+     * <p>
+     * 📌 @PathVariable Long id:
+     *    ID của region — VD: /regions/1 → id = 1
+     *
+     * @param id      ID của region (lấy từ URL)
+     * @param request DTO chứa các field muốn cập nhật (body JSON)
+     * @return ResponseEntity chứa region đã cập nhật (HTTP 200)
+     */
     @Operation(
             summary = "Cập nhật region",
-            description = "Cập nhật thông tin region (label, type, toạ độ, kích thước, màu sắc). Chỉ MANAGAKA mới được dùng."
+            description = "Cập nhật thông tin region (label, type, toạ độ, kích thước, màu sắc). Hỗ trợ partial update — chỉ gửi field muốn thay đổi. Chỉ MANAGAKA mới được dùng."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Region đã cập nhật"),
-            @ApiResponse(responseCode = "404", description = "Không tìm thấy region"),
-            @ApiResponse(responseCode = "403", description = "Không có quyền (chỉ MANAGAKA)")
+            @ApiResponse(responseCode = "404", description = "Không tìm thấy region với id đã cho"),
+            @ApiResponse(responseCode = "403", description = "Không có quyền — chỉ MANAGAKA mới được cập nhật region")
     })
     @PutMapping("/regions/{id}")
     @PreAuthorize("hasRole('MANAGAKA')")
     public ResponseEntity<RegionResponse> updateRegion(
             @Parameter(description = "ID của region", example = "1")
             @PathVariable Long id,
+
+            @Parameter(description = "Thông tin region cần cập nhật (các field null sẽ bỏ qua)")
             @Valid @RequestBody RegionRequest request) {
+        // Gọi service → cập nhật region → trả về HTTP 200
         return ResponseEntity.ok(regionService.updateRegion(id, request));
     }
 
     // ════════════════════════════════════════════════════════════════
-    // 4. UPDATE REGION STATUS
+    // 4. UPDATE REGION STATUS — Đổi trạng thái region
     // ════════════════════════════════════════════════════════════════
 
+    /**
+     * PATCH /api/v1/regions/{id}/status
+     * <p>
+     * 📌 Chức năng: Đổi trạng thái region (PENDING → IN_PROGRESS → COMPLETED).
+     * <p>
+     * 📌 Request body (JSON):
+     *    {
+     *      "status": "IN_PROGRESS"
+     *    }
+     * <p>
+     * 📌 Response 200:
+     *    {
+     *      "id": 1,
+     *      "status": "IN_PROGRESS",
+     *      ...
+     *    }
+     * <p>
+     * 📌 Tại sao dùng PATCH thay vì PUT?
+     *    - PATCH: cập nhật 1 phần resource (chỉ thay đổi status)
+     *    - PUT: thay thế toàn bộ resource
+     *    - Đây là chuẩn REST — dùng PATCH cho partial update
+     * <p>
+     * 📌 @Valid @RequestBody RegionStatusRequest:
+     *    DTO chỉ có 1 field: status (enum) — bắt buộc, không được null
+     *
+     * @param id      ID của region (lấy từ URL)
+     * @param request DTO chứa status mới (body JSON)
+     * @return ResponseEntity chứa region đã đổi status (HTTP 200)
+     */
     @Operation(
             summary = "Đổi trạng thái region",
-            description = "Chuyển trạng thái region: PENDING → IN_PROGRESS → COMPLETED. Chỉ MANAGAKA mới được dùng."
+            description = "Chuyển trạng thái region theo luồng: PENDING → IN_PROGRESS → COMPLETED. Chỉ MANAGAKA mới được dùng."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Region đã đổi trạng thái"),
-            @ApiResponse(responseCode = "400", description = "Chuyển trạng thái không hợp lệ"),
+            @ApiResponse(responseCode = "400", description = "Chuyển trạng thái không hợp lệ (VD: PENDING → COMPLETED)"),
             @ApiResponse(responseCode = "404", description = "Không tìm thấy region"),
-            @ApiResponse(responseCode = "403", description = "Không có quyền (chỉ MANAGAKA)")
+            @ApiResponse(responseCode = "403", description = "Không có quyền — chỉ MANAGAKA mới được đổi trạng thái")
     })
     @PatchMapping("/regions/{id}/status")
     @PreAuthorize("hasRole('MANAGAKA')")
     public ResponseEntity<RegionResponse> updateRegionStatus(
             @Parameter(description = "ID của region", example = "1")
             @PathVariable Long id,
+
+            @Parameter(description = "Trạng thái mới (PENDING, IN_PROGRESS, COMPLETED)")
             @Valid @RequestBody RegionStatusRequest request) {
+        // Gọi service → đổi status → trả về HTTP 200
         return ResponseEntity.ok(regionService.updateRegionStatus(id, request.getStatus()));
     }
 
     // ════════════════════════════════════════════════════════════════
-    // 5. DELETE REGION
+    // 5. DELETE REGION — Xoá region
     // ════════════════════════════════════════════════════════════════
 
+    /**
+     * DELETE /api/v1/regions/{id}
+     * <p>
+     * 📌 Chức năng: Xoá 1 region. Chỉ xoá được khi region đang PENDING.
+     * <p>
+     * 📌 Request:
+     *    DELETE /api/v1/regions/1
+     * <p>
+     * 📌 Response 204:
+     *    (Không có body — chuẩn REST cho delete thành công)
+     * <p>
+     * 📌 ResponseEntity.noContent():
+     *    - HTTP 204 No Content — không trả về body
+     *    - Chuẩn REST: DELETE thành công → 204 (không có nội dung trả về)
+     * <p>
+     * 📌 Tại sao chỉ xoá được PENDING?
+     *    - IN_PROGRESS: đã assign task → xoá sẽ mất dữ liệu công việc
+     *    - COMPLETED: đã hoàn thành → cần giữ lại để thống kê/lịch sử
+     *
+     * @param id ID của region cần xoá (lấy từ URL)
+     * @return ResponseEntity rỗng (HTTP 204)
+     */
     @Operation(
             summary = "Xoá region",
             description = "Xoá region. Chỉ xoá được khi region đang PENDING (chưa có task). Chỉ MANAGAKA mới được dùng."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Đã xoá thành công"),
-            @ApiResponse(responseCode = "400", description = "Region đang IN_PROGRESS, không thể xoá"),
+            @ApiResponse(responseCode = "204", description = "Đã xoá thành công — không có nội dung trả về"),
+            @ApiResponse(responseCode = "400", description = "Region đang IN_PROGRESS hoặc COMPLETED, không thể xoá"),
             @ApiResponse(responseCode = "404", description = "Không tìm thấy region"),
-            @ApiResponse(responseCode = "403", description = "Không có quyền (chỉ MANAGAKA)")
+            @ApiResponse(responseCode = "403", description = "Không có quyền — chỉ MANAGAKA mới được xoá region")
     })
     @DeleteMapping("/regions/{id}")
     @PreAuthorize("hasRole('MANAGAKA')")
     public ResponseEntity<Void> deleteRegion(
             @Parameter(description = "ID của region cần xoá", example = "1")
             @PathVariable Long id) {
+        // Gọi service → xoá region → trả về HTTP 204 No Content
         regionService.deleteRegion(id);
         return ResponseEntity.noContent().build();
     }
 
     // ════════════════════════════════════════════════════════════════
-    // 6. REORDER REGIONS
+    // 6. REORDER REGIONS — Sắp xếp lại regions
     // ════════════════════════════════════════════════════════════════
 
+    /**
+     * PUT /api/v1/pages/{pageId}/regions/reorder
+     * <p>
+     * 📌 Chức năng: Sắp xếp lại toàn bộ regions trên page theo thứ tự mới.
+     * Dùng cho tính năng kéo thả (drag & drop) trên frontend.
+     * <p>
+     * 📌 Request body (JSON):
+     *    {
+     *      "regionIds": [5, 3, 1, 4, 2]
+     *    }
+     *    (regionIds[0] = dưới cùng, regionIds[n-1] = trên cùng)
+     * <p>
+     * 📌 Response 200:
+     *    [
+     *      { "id": 5, "sortOrder": 0, ... },
+     *      { "id": 3, "sortOrder": 1, ... },
+     *      ...
+     *    ]
+     * <p>
+     * 📌 Route đặc biệt:
+     *    PUT /pages/{pageId}/regions/reorder
+     *    - Cần pageId để lấy danh sách regions trong page
+     *    - "reorder" là action — đặt ở cuối path để dễ đọc
+     * <p>
+     * 📌 @PreAuthorize("hasRole('MANAGAKA')"):
+     *    Chỉ MANAGAKA mới được sắp xếp lại regions
+     * <p>
+     * 📌 @Valid @RequestBody RegionReorderRequest:
+     *    DTO chứa List<Long> regionIds — phải có ít nhất 1 phần tử
+     *
+     * @param pageId  ID của page (lấy từ URL)
+     * @param request DTO chứa danh sách regionIds theo thứ tự mới
+     * @return ResponseEntity chứa danh sách regions đã sắp xếp (HTTP 200)
+     */
     @Operation(
             summary = "Sắp xếp lại regions (dùng cho kéo thả)",
-            description = "Sắp xếp lại toàn bộ regions trên page theo thứ tự mới. Frontend gửi mảng regionIds theo thứ tự từ dưới lên trên."
+            description = "Sắp xếp lại toàn bộ regions trên page theo thứ tự mới. Frontend gửi mảng regionIds theo thứ tự từ dưới lên trên. Chỉ MANAGAKA mới được dùng."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Danh sách regions đã sắp xếp"),
-            @ApiResponse(responseCode = "400", description = "Số lượng regionIds không khớp"),
-            @ApiResponse(responseCode = "403", description = "Không có quyền (chỉ MANAGAKA)")
+            @ApiResponse(responseCode = "200", description = "Danh sách regions đã sắp xếp theo thứ tự mới"),
+            @ApiResponse(responseCode = "400", description = "Số lượng regionIds không khớp với DB"),
+            @ApiResponse(responseCode = "403", description = "Không có quyền — chỉ MANAGAKA mới được sắp xếp regions")
     })
     @PutMapping("/pages/{pageId}/regions/reorder")
     @PreAuthorize("hasRole('MANAGAKA')")
     public ResponseEntity<List<RegionResponse>> reorderRegions(
             @Parameter(description = "ID của page", example = "1")
             @PathVariable Long pageId,
+
+            @Parameter(description = "Danh sách regionIds theo thứ tự mới (từ dưới lên trên)")
             @Valid @RequestBody RegionReorderRequest request) {
+        // Gọi service → sắp xếp lại regions → trả về HTTP 200
         return ResponseEntity.ok(
                 regionService.reorderRegions(pageId, request.getRegionIds()));
     }
