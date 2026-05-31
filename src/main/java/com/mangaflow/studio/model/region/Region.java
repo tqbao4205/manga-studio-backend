@@ -169,23 +169,9 @@ public class Region {
 
     /**
      * status: Trạng thái hiện tại của region.
-     * Mặc định: PENDING (vừa tạo, chưa giao việc).
+     * Mặc định: PENDING (vừa tạo, chưa có task).
      * <p>
-     * 📌 @Enumerated(EnumType.STRING):
-     *    Lưu dạng chữ "PENDING", "IN_PROGRESS"...
-     * <p>
-     * 📌 @Builder.Default:
-     *    Khi dùng builder mà không set status → mặc định PENDING.
-     * <p>
-     * 📌 Các trạng thái:
-     *    - PENDING      : chờ tạo task
-     *    - IN_PROGRESS  : đang có task được thực hiện
-     *    - SUBMITTED    : task đã nộp, chờ duyệt
-     *    - APPROVED     : task đã được duyệt
-     *    - COMPLETED    : hoàn thành
-     * <p>
-     * 📌 Region status tự động cập nhật khi task thay đổi
-     *    (trong TaskService layer), không cần frontend gọi riêng.
+     * 📌 Luồng: PENDING → IN_PROGRESS → COMPLETED
      */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
