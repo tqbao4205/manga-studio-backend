@@ -35,17 +35,17 @@ import java.util.List;
  *  │ Method │ Endpoint                                 │ Chức năng            │ Role     │
  *  ├────────┼──────────────────────────────────────────┼──────────────────────┼──────────┤
  *  │ GET    │ /pages/{pageId}/regions                  │ Danh sách regions    │ ANY      │
- *  │ POST   │ /pages/{pageId}/regions                  │ Tạo region mới       │ MANAGAKA │
- *  │ PUT    │ /regions/{id}                            │ Cập nhật region      │ MANAGAKA │
- *  │ PATCH  │ /regions/{id}/status                     │ Đổi trạng thái       │ MANAGAKA │
- *  │ DELETE │ /regions/{id}                            │ Xoá region           │ MANAGAKA │
- *  │ PUT    │ /pages/{pageId}/regions/reorder          │ Sắp xếp lại          │ MANAGAKA │
+ *  │ POST   │ /pages/{pageId}/regions                  │ Tạo region mới       │ MANGAKA │
+ *  │ PUT    │ /regions/{id}                            │ Cập nhật region      │ MANGAKA │
+ *  │ PATCH  │ /regions/{id}/status                     │ Đổi trạng thái       │ MANGAKA │
+ *  │ DELETE │ /regions/{id}                            │ Xoá region           │ MANGAKA │
+ *  │ PUT    │ /pages/{pageId}/regions/reorder          │ Sắp xếp lại          │ MANGAKA │
  *  └────────┴──────────────────────────────────────────┴──────────────────────┴──────────┘
  * <p>
  * 📌 Routes có /pages/{pageId} → cần pageId (thao tác theo page)
  * 📌 Routes có /regions/{id} → cần regionId (thao tác trực tiếp trên region)
  * 📌 GET: ai cũng xem được (isAuthenticated)
- * 📌 POST/PUT/PATCH/DELETE: chỉ MANAGAKA mới được dùng
+ * 📌 POST/PUT/PATCH/DELETE: chỉ MANGAKA mới được dùng
  */
 @RestController
 @RequestMapping("/api/v1")
@@ -136,8 +136,8 @@ public class RegionController {
      *      "sortOrder": 0
      *    }
      * <p>
-     * 📌 @PreAuthorize("hasRole('MANAGAKA')"):
-     *    - Chỉ MANAGAKA mới được tạo region
+     * 📌 @PreAuthorize("hasRole('MANGAKA')"):
+     *    - Chỉ MANGAKA mới được tạo region
      *    - Nếu user không có role này → Spring trả về 403 Forbidden
      * <p>
      * 📌 @Valid @RequestBody RegionRequest:
@@ -153,15 +153,15 @@ public class RegionController {
      */
     @Operation(
             summary = "Tạo region mới trên page",
-            description = "Tạo 1 vùng vẽ mới trên page. Chỉ MANAGAKA mới được dùng."
+            description = "Tạo 1 vùng vẽ mới trên page. Chỉ MANGAKA mới được dùng."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Region đã tạo"),
             @ApiResponse(responseCode = "400", description = "Dữ liệu không hợp lệ (thiếu field, sai kiểu, ...)"),
-            @ApiResponse(responseCode = "403", description = "Không có quyền — chỉ MANAGAKA mới được tạo region")
+            @ApiResponse(responseCode = "403", description = "Không có quyền — chỉ MANGAKA mới được tạo region")
     })
     @PostMapping("/pages/{pageId}/regions")
-    @PreAuthorize("hasRole('MANAGAKA')")
+    @PreAuthorize("hasRole('MANGAKA')")
     public ResponseEntity<RegionResponse> createRegion(
             @Parameter(description = "ID của page", example = "1")
             @PathVariable Long pageId,
@@ -212,15 +212,15 @@ public class RegionController {
      */
     @Operation(
             summary = "Cập nhật region",
-            description = "Cập nhật thông tin region (label, type, toạ độ, kích thước, màu sắc). Hỗ trợ partial update — chỉ gửi field muốn thay đổi. Chỉ MANAGAKA mới được dùng."
+            description = "Cập nhật thông tin region (label, type, toạ độ, kích thước, màu sắc). Hỗ trợ partial update — chỉ gửi field muốn thay đổi. Chỉ MANGAKA mới được dùng."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Region đã cập nhật"),
             @ApiResponse(responseCode = "404", description = "Không tìm thấy region với id đã cho"),
-            @ApiResponse(responseCode = "403", description = "Không có quyền — chỉ MANAGAKA mới được cập nhật region")
+            @ApiResponse(responseCode = "403", description = "Không có quyền — chỉ MANGAKA mới được cập nhật region")
     })
     @PutMapping("/regions/{id}")
-    @PreAuthorize("hasRole('MANAGAKA')")
+    @PreAuthorize("hasRole('MANGAKA')")
     public ResponseEntity<RegionResponse> updateRegion(
             @Parameter(description = "ID của region", example = "1")
             @PathVariable Long id,
@@ -266,16 +266,16 @@ public class RegionController {
      */
     @Operation(
             summary = "Đổi trạng thái region",
-            description = "Chuyển trạng thái region theo luồng: PENDING → IN_PROGRESS → COMPLETED. Chỉ MANAGAKA mới được dùng."
+            description = "Chuyển trạng thái region theo luồng: PENDING → IN_PROGRESS → COMPLETED. Chỉ MANGAKA mới được dùng."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Region đã đổi trạng thái"),
             @ApiResponse(responseCode = "400", description = "Chuyển trạng thái không hợp lệ (VD: PENDING → COMPLETED)"),
             @ApiResponse(responseCode = "404", description = "Không tìm thấy region"),
-            @ApiResponse(responseCode = "403", description = "Không có quyền — chỉ MANAGAKA mới được đổi trạng thái")
+            @ApiResponse(responseCode = "403", description = "Không có quyền — chỉ MANGAKA mới được đổi trạng thái")
     })
     @PatchMapping("/regions/{id}/status")
-    @PreAuthorize("hasRole('MANAGAKA')")
+    @PreAuthorize("hasRole('MANGAKA')")
     public ResponseEntity<RegionResponse> updateRegionStatus(
             @Parameter(description = "ID của region", example = "1")
             @PathVariable Long id,
@@ -314,16 +314,16 @@ public class RegionController {
      */
     @Operation(
             summary = "Xoá region",
-            description = "Xoá region. Chỉ xoá được khi region đang PENDING (chưa có task). Chỉ MANAGAKA mới được dùng."
+            description = "Xoá region. Chỉ xoá được khi region đang PENDING (chưa có task). Chỉ MANGAKA mới được dùng."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Đã xoá thành công — không có nội dung trả về"),
             @ApiResponse(responseCode = "400", description = "Region đang IN_PROGRESS hoặc COMPLETED, không thể xoá"),
             @ApiResponse(responseCode = "404", description = "Không tìm thấy region"),
-            @ApiResponse(responseCode = "403", description = "Không có quyền — chỉ MANAGAKA mới được xoá region")
+            @ApiResponse(responseCode = "403", description = "Không có quyền — chỉ MANGAKA mới được xoá region")
     })
     @DeleteMapping("/regions/{id}")
-    @PreAuthorize("hasRole('MANAGAKA')")
+    @PreAuthorize("hasRole('MANGAKA')")
     public ResponseEntity<Void> deleteRegion(
             @Parameter(description = "ID của region cần xoá", example = "1")
             @PathVariable Long id) {
@@ -360,8 +360,8 @@ public class RegionController {
      *    - Cần pageId để lấy danh sách regions trong page
      *    - "reorder" là action — đặt ở cuối path để dễ đọc
      * <p>
-     * 📌 @PreAuthorize("hasRole('MANAGAKA')"):
-     *    Chỉ MANAGAKA mới được sắp xếp lại regions
+     * 📌 @PreAuthorize("hasRole('MANGAKA')"):
+     *    Chỉ MANGAKA mới được sắp xếp lại regions
      * <p>
      * 📌 @Valid @RequestBody RegionReorderRequest:
      *    DTO chứa List<Long> regionIds — phải có ít nhất 1 phần tử
@@ -372,15 +372,15 @@ public class RegionController {
      */
     @Operation(
             summary = "Sắp xếp lại regions (dùng cho kéo thả)",
-            description = "Sắp xếp lại toàn bộ regions trên page theo thứ tự mới. Frontend gửi mảng regionIds theo thứ tự từ dưới lên trên. Chỉ MANAGAKA mới được dùng."
+            description = "Sắp xếp lại toàn bộ regions trên page theo thứ tự mới. Frontend gửi mảng regionIds theo thứ tự từ dưới lên trên. Chỉ MANGAKA mới được dùng."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Danh sách regions đã sắp xếp theo thứ tự mới"),
             @ApiResponse(responseCode = "400", description = "Số lượng regionIds không khớp với DB"),
-            @ApiResponse(responseCode = "403", description = "Không có quyền — chỉ MANAGAKA mới được sắp xếp regions")
+            @ApiResponse(responseCode = "403", description = "Không có quyền — chỉ MANGAKA mới được sắp xếp regions")
     })
     @PutMapping("/pages/{pageId}/regions/reorder")
-    @PreAuthorize("hasRole('MANAGAKA')")
+    @PreAuthorize("hasRole('MANGAKA')")
     public ResponseEntity<List<RegionResponse>> reorderRegions(
             @Parameter(description = "ID của page", example = "1")
             @PathVariable Long pageId,
