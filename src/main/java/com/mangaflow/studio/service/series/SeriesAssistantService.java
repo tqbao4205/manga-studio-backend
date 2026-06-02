@@ -14,6 +14,7 @@ import com.mangaflow.studio.model.series.SeriesAssistant;
 import com.mangaflow.studio.repository.auth.UserRepository;
 import com.mangaflow.studio.repository.series.SeriesAssistantRepository;
 import com.mangaflow.studio.repository.series.SeriesRepository;
+import com.mangaflow.studio.service.common.WebSocketService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -51,6 +52,7 @@ public class SeriesAssistantService {
     private final UserRepository userRepository;
     private final SeriesAssistantRepository seriesAssistantRepository;
     private final SeriesAssistantMapper seriesAssistantMapper;
+    private final WebSocketService webSocketService;
 
     // ════════════════════════════════════════════════════════════
     // 1. INVITE ASSISTANT — MANGAKA mời ASSISTANT vào series
@@ -124,8 +126,12 @@ public class SeriesAssistantService {
             existing.setRespondedAt(null); // reset thời gian phản hồi cũ
             // invitedBy giữ nguyên (người mời ban đầu)
             // invitedAt giữ nguyên (thời điểm mời lần đầu)
-            return seriesAssistantMapper.toResponse(
+            SeriesAssistantResponse existingResponse = seriesAssistantMapper.toResponse(
                     seriesAssistantRepository.save(existing));
+
+            // 📨 Push real-time cho ASSISTANT biết có lời mời mới (hoặc mời lại)
+            webSocketService.sendToUser(assistant.getId(), "INVITATION_SENT", existingResponse);
+            return existingResponse;
         }
 
         // ── Bước 4: Chưa có lời mời nào → tạo mới ──
@@ -139,7 +145,12 @@ public class SeriesAssistantService {
         SeriesAssistant saved = seriesAssistantRepository.save(invitation);
 
         // ── Bước 5: Map sang DTO và trả về ──
-        return seriesAssistantMapper.toResponse(saved);
+        SeriesAssistantResponse response = seriesAssistantMapper.toResponse(saved);
+
+        // 📨 Push real-time cho ASSISTANT biết có lời mời mới
+        webSocketService.sendToUser(assistant.getId(), "INVITATION_SENT", response);
+
+        return response;
     }
 
     // ════════════════════════════════════════════════════════════
@@ -268,8 +279,17 @@ public class SeriesAssistantService {
 
         SeriesAssistant saved = seriesAssistantRepository.save(invitation);
 
-        // ── Bước 6: Map sang DTO và trả về ──
-        return seriesAssistantMapper.toResponse(saved);
+        // ── Bước 6: Map sang DTO ──
+        SeriesAssistantResponse response = seriesAssistantMapper.toResponse(saved);
+
+        // 📨 Push real-time cho MANGAKA biết assistant đã accept/reject lời mời
+        // Lấy ID của MANGAKA từ Series entity (invitation.getSeries().getMangaka())
+        Long mangakaId = invitation.getSeries().getMangaka().getId();
+        String eventType = "INVITATION_" + newStatus.name(); // INVITATION_ACCEPTED / INVITATION_REJECTED
+        webSocketService.sendToUser(mangakaId, eventType, response);
+
+        // ── Bước 7: Trả về response ──
+        return response;
     }
 
     // ════════════════════════════════════════════════════════════
