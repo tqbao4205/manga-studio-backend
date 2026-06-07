@@ -14,6 +14,7 @@ import com.mangaflow.studio.model.series.SeriesStatus;
 import com.mangaflow.studio.repository.auth.UserRepository;
 import com.mangaflow.studio.repository.series.SeriesRepository;
 import com.mangaflow.studio.service.common.WebSocketService;
+import com.mangaflow.studio.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -95,6 +96,13 @@ public class SeriesWorkflowService {
      * submit, approve, reject...
      */
     private final WebSocketService webSocketService;
+
+    /**
+     * notificationService: Dùng để persist notification vào DB và push
+     * realtime event "NOTIFICATION" qua WebSocket.
+     * Được gọi song song với webSocketService.sendToUser() hiện tại.
+     */
+    private final NotificationService notificationService;
 
     // ════════════════════════════════════════════════════════════
     // 1. SUBMIT — Gửi duyệt (Mangaka)
@@ -178,6 +186,17 @@ public class SeriesWorkflowService {
                 "TANTOU_REVIEW_REQUIRED",
                 "Series \"" + series.getTitle() + "\" has been submitted for your review");
 
+        // 📌 Persist notification + push "NOTIFICATION" event cho Tantou
+        notificationService.createAndSend(
+                series.getTantouEditor().getId(),        // userId: TANTOU_EDITOR
+                "TANTOU_REVIEW_REQUIRED",                // type
+                "Review required: " + series.getTitle(), // title
+                "Series \"" + series.getTitle()
+                        + "\" has been submitted for your review.", // message
+                "SERIES",                                // referenceType
+                series.getId()                           // referenceId
+        );
+
         return response;
     }
 
@@ -218,6 +237,17 @@ public class SeriesWorkflowService {
         webSocketService.sendToUser(series.getMangaka().getId(),
                 "TANTOU_APPROVED",
                 "Series \"" + series.getTitle() + "\" has been approved by your tantou editor");
+
+        // 📌 Persist notification + push "NOTIFICATION" event cho Mangaka
+        notificationService.createAndSend(
+                series.getMangaka().getId(),             // userId: MANGAKA
+                "TANTOU_APPROVED",                        // type
+                "Series approved by tantou",              // title
+                "Series \"" + series.getTitle()
+                        + "\" has been approved by your tantou editor.", // message
+                "SERIES",                                // referenceType
+                series.getId()                           // referenceId
+        );
 
         return response;
     }
@@ -261,6 +291,17 @@ public class SeriesWorkflowService {
         webSocketService.sendToUser(series.getMangaka().getId(),
                 "TANTOU_REJECTED",
                 message);
+
+        // 📌 Persist notification + push "NOTIFICATION" event cho Mangaka
+        notificationService.createAndSend(
+                series.getMangaka().getId(),             // userId: MANGAKA
+                "TANTOU_REJECTED",                        // type
+                "Series rejected by tantou",              // title
+                "Series \"" + series.getTitle()
+                        + "\" has been rejected by your tantou editor.", // message
+                "SERIES",                                // referenceType
+                series.getId()                           // referenceId
+        );
 
         return response;
     }
@@ -314,7 +355,20 @@ public class SeriesWorkflowService {
             series.setTantouEditor(editor);
         }
 
-        return seriesMapper.toResponse(seriesRepository.save(series));
+        SeriesResponse response = seriesMapper.toResponse(seriesRepository.save(series));
+
+        // 📌 Gửi notification cho Mangaka biết series đã được duyệt
+        notificationService.createAndSend(
+                series.getMangaka().getId(),             // userId: MANGAKA
+                "SERIES_APPROVED",                        // type
+                "Series approved: " + series.getTitle(),  // title
+                "Series \"" + series.getTitle()
+                        + "\" has been approved by Editorial Board.", // message
+                "SERIES",                                // referenceType
+                series.getId()                           // referenceId
+        );
+
+        return response;
     }
 
     // ════════════════════════════════════════════════════════════
@@ -355,7 +409,20 @@ public class SeriesWorkflowService {
 
         series.setStatus(SeriesStatus.DRAFT);
 
-        return seriesMapper.toResponse(seriesRepository.save(series));
+        SeriesResponse response = seriesMapper.toResponse(seriesRepository.save(series));
+
+        // 📌 Gửi notification cho Mangaka biết series đã bị từ chối
+        notificationService.createAndSend(
+                series.getMangaka().getId(),              // userId: MANGAKA
+                "SERIES_REJECTED",                         // type
+                "Series rejected: " + series.getTitle(),   // title
+                "Series \"" + series.getTitle()
+                        + "\" has been rejected by Editorial Board.", // message
+                "SERIES",                                 // referenceType
+                series.getId()                            // referenceId
+        );
+
+        return response;
     }
 
     // ════════════════════════════════════════════════════════════
@@ -407,7 +474,22 @@ public class SeriesWorkflowService {
 
         series.setStatus(target);
 
-        return seriesMapper.toResponse(seriesRepository.save(series));
+        SeriesResponse response = seriesMapper.toResponse(seriesRepository.save(series));
+
+        // 📌 Gửi notification cho Mangaka nếu series bị huỷ (CANCELLED)
+        if (target == SeriesStatus.CANCELLED) {
+            notificationService.createAndSend(
+                    series.getMangaka().getId(),           // userId: MANGAKA
+                    "SERIES_CANCELLED",                     // type
+                    "Series cancelled: " + series.getTitle(), // title
+                    "Series \"" + series.getTitle()
+                            + "\" has been cancelled.",     // message
+                    "SERIES",                               // referenceType
+                    series.getId()                          // referenceId
+            );
+        }
+
+        return response;
     }
 
     // ════════════════════════════════════════════════════════════

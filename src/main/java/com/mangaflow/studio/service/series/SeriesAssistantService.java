@@ -15,6 +15,7 @@ import com.mangaflow.studio.repository.auth.UserRepository;
 import com.mangaflow.studio.repository.series.SeriesAssistantRepository;
 import com.mangaflow.studio.repository.series.SeriesRepository;
 import com.mangaflow.studio.service.common.WebSocketService;
+import com.mangaflow.studio.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -53,6 +54,15 @@ public class SeriesAssistantService {
     private final SeriesAssistantRepository seriesAssistantRepository;
     private final SeriesAssistantMapper seriesAssistantMapper;
     private final WebSocketService webSocketService;
+
+    /**
+     * notificationService: Dùng để persist notification vào DB và push
+     * realtime event "NOTIFICATION" qua WebSocket.
+     * Được gọi song song với webSocketService.sendToUser() hiện tại:
+     *   - WS cũ: trigger refetch trên frontend (invitationTrigger)
+     *   - WS mới: persist + notification panel + toast
+     */
+    private final NotificationService notificationService;
 
     // ════════════════════════════════════════════════════════════
     // 1. INVITE ASSISTANT — MANGAKA mời ASSISTANT vào series
@@ -131,6 +141,19 @@ public class SeriesAssistantService {
 
             // 📨 Push real-time cho ASSISTANT biết có lời mời mới (hoặc mời lại)
             webSocketService.sendToUser(assistant.getId(), "INVITATION_SENT", existingResponse);
+
+            // 📌 Persist notification + push "NOTIFICATION" event
+            // (song song với WS cũ — WS cũ trigger refetch, cái này cho notification panel)
+            notificationService.createAndSend(
+                    assistant.getId(),                       // userId: ASSISTANT
+                    "INVITATION_SENT",                        // type
+                    "Invitation to join " + series.getTitle(), // title
+                    "You have been re-invited to join series \""
+                            + series.getTitle() + "\".",     // message
+                    "SERIES",                                 // referenceType: navigate đến /series/{id}
+                    seriesId                                  // referenceId
+            );
+
             return existingResponse;
         }
 
@@ -149,6 +172,17 @@ public class SeriesAssistantService {
 
         // 📨 Push real-time cho ASSISTANT biết có lời mời mới
         webSocketService.sendToUser(assistant.getId(), "INVITATION_SENT", response);
+
+        // 📌 Persist notification + push "NOTIFICATION" event
+        notificationService.createAndSend(
+                assistant.getId(),                       // userId: ASSISTANT
+                "INVITATION_SENT",                        // type
+                "Invitation to join " + series.getTitle(), // title
+                "You have been invited to join series \""
+                        + series.getTitle() + "\".",     // message
+                "SERIES",                                 // referenceType
+                seriesId                                  // referenceId
+        );
 
         return response;
     }
@@ -287,6 +321,24 @@ public class SeriesAssistantService {
         Long mangakaId = invitation.getSeries().getMangaka().getId();
         String eventType = "INVITATION_" + newStatus.name(); // INVITATION_ACCEPTED / INVITATION_REJECTED
         webSocketService.sendToUser(mangakaId, eventType, response);
+
+        // 📌 Persist notification + push "NOTIFICATION" event cho MANGAKA
+        // Dùng newStatus.name() để phân biệt ACCEPTED / REJECTED
+        String notifTitle = newStatus == InvitationStatus.ACCEPTED
+                ? invitation.getAssistant().getDisplayName() + " accepted your invitation"
+                : invitation.getAssistant().getDisplayName() + " declined your invitation";
+        String notifMsg = invitation.getAssistant().getDisplayName()
+                + " has " + (newStatus == InvitationStatus.ACCEPTED ? "accepted" : "declined")
+                + " the invitation to join series \""
+                + invitation.getSeries().getTitle() + "\".";
+        notificationService.createAndSend(
+                mangakaId,                                // userId: MANGAKA
+                "INVITATION_" + newStatus.name(),          // type: INVITATION_ACCEPTED / INVITATION_REJECTED
+                notifTitle,                                // title
+                notifMsg,                                  // message
+                "SERIES",                                  // referenceType: navigate đến /series/{id}
+                invitation.getSeries().getId()             // referenceId
+        );
 
         // ── Bước 7: Trả về response ──
         return response;

@@ -15,6 +15,7 @@ import com.mangaflow.studio.repository.auth.UserRepository;
 import com.mangaflow.studio.repository.series.SeriesRepository;
 import com.mangaflow.studio.repository.series.SeriesTantouInvitationRepository;
 import com.mangaflow.studio.service.common.WebSocketService;
+import com.mangaflow.studio.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -53,6 +54,15 @@ public class SeriesTantouInvitationService {
     private final SeriesTantouInvitationRepository seriesTantouInvitationRepository;
     private final SeriesTantouMapper seriesTantouMapper;
     private final WebSocketService webSocketService;
+
+    /**
+     * notificationService: Dùng để persist notification vào DB và push
+     * realtime event "NOTIFICATION" qua WebSocket.
+     * Được gọi song song với webSocketService.sendToUser() hiện tại:
+     *   - WS cũ: trigger refetch trên frontend (invitationTrigger)
+     *   - NotificationService: persist + notification panel + toast
+     */
+    private final NotificationService notificationService;
 
     // ════════════════════════════════════════════════════════════
     // 1. INVITE TANTOU — MANGAKA mời TANTOU_EDITOR duyệt series
@@ -141,6 +151,19 @@ public class SeriesTantouInvitationService {
 
             // Push real-time cho TANTOU biết có lời mời mới (hoặc mời lại)
             webSocketService.sendToUser(tantou.getId(), "TANTOU_INVITATION_SENT", existingResponse);
+
+            // 📌 Persist notification + push "NOTIFICATION" event
+            // (song song với WS cũ — WS cũ trigger refetch, cái này cho notification panel)
+            notificationService.createAndSend(
+                    tantou.getId(),                             // userId: TANTOU_EDITOR
+                    "TANTOU_INVITATION_SENT",                    // type
+                    "Invitation to review: " + series.getTitle(), // title
+                    "You have been re-invited to review series \""
+                            + series.getTitle() + "\".",        // message
+                    "SERIES",                                    // referenceType: navigate đến /series/{id}
+                    seriesId                                     // referenceId
+            );
+
             return existingResponse;
         }
 
@@ -159,6 +182,17 @@ public class SeriesTantouInvitationService {
 
         // Push real-time cho TANTOU biết có lời mời mới
         webSocketService.sendToUser(tantou.getId(), "TANTOU_INVITATION_SENT", response);
+
+        // 📌 Persist notification + push "NOTIFICATION" event
+        notificationService.createAndSend(
+                tantou.getId(),                             // userId: TANTOU_EDITOR
+                "TANTOU_INVITATION_SENT",                    // type
+                "Invitation to review: " + series.getTitle(), // title
+                "You have been invited to review series \""
+                        + series.getTitle() + "\".",        // message
+                "SERIES",                                    // referenceType
+                seriesId                                     // referenceId
+        );
 
         return response;
     }
@@ -308,6 +342,25 @@ public class SeriesTantouInvitationService {
         String eventType = "TANTOU_INVITATION_" + newStatus.name();
         // VD: TANTOU_INVITATION_ACCEPTED / TANTOU_INVITATION_REJECTED
         webSocketService.sendToUser(mangakaId, eventType, response);
+
+        // 📌 Persist notification + push "NOTIFICATION" event cho MANGAKA
+        // Lấy thông tin tantou để hiển thị tên trong notification
+        User tantou = invitation.getTantou();
+        String notifTitle = newStatus == InvitationStatus.ACCEPTED
+                ? tantou.getDisplayName() + " accepted review invitation"
+                : tantou.getDisplayName() + " declined review invitation";
+        String notifMsg = tantou.getDisplayName()
+                + " has " + (newStatus == InvitationStatus.ACCEPTED ? "accepted" : "declined")
+                + " the invitation to review series \""
+                + invitation.getSeries().getTitle() + "\".";
+        notificationService.createAndSend(
+                mangakaId,                                // userId: MANGAKA
+                "TANTOU_INVITATION_" + newStatus.name(),   // type
+                notifTitle,                                // title
+                notifMsg,                                  // message
+                "SERIES",                                  // referenceType: navigate đến /series/{id}
+                invitation.getSeries().getId()             // referenceId
+        );
 
         // ── Bước 8: Trả về response ──
         return response;

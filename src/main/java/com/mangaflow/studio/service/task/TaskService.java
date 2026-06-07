@@ -13,18 +13,19 @@ import com.mangaflow.studio.dto.task.response.TaskResponse;
 import com.mangaflow.studio.dto.task.response.TaskSubmissionResponse;
 import com.mangaflow.studio.model.auth.Role;
 import com.mangaflow.studio.model.auth.User;
-import com.mangaflow.studio.model.region.Region;
-import com.mangaflow.studio.model.task.*;
-import com.mangaflow.studio.model.series.InvitationStatus;
-import com.mangaflow.studio.repository.auth.UserRepository;
 import com.mangaflow.studio.model.chapter.Chapter;
+import com.mangaflow.studio.model.region.Region;
+import com.mangaflow.studio.model.series.InvitationStatus;
+import com.mangaflow.studio.model.task.*;
+import com.mangaflow.studio.repository.auth.UserRepository;
 import com.mangaflow.studio.repository.chapter.ChapterRepository;
-import com.mangaflow.studio.repository.series.SeriesAssistantRepository;
 import com.mangaflow.studio.repository.page.PageRepository;
 import com.mangaflow.studio.repository.region.RegionRepository;
+import com.mangaflow.studio.repository.series.SeriesAssistantRepository;
 import com.mangaflow.studio.repository.task.TaskAttachmentRepository;
 import com.mangaflow.studio.repository.task.TaskRepository;
 import com.mangaflow.studio.repository.task.TaskSubmissionRepository;
+import com.mangaflow.studio.service.notification.NotificationService;
 import com.mangaflow.studio.service.page.LayerService;
 import com.mangaflow.studio.service.storage.CloudinaryService;
 import jakarta.persistence.criteria.Predicate;
@@ -53,20 +54,20 @@ import java.util.List;
  * 📌 @Transactional: Tất cả method trong class đều chạy trong transaction.
  * <p>
  * ══════════════════════════════════════════════════════════════════
- *  Danh sách method (tương ứng 12 endpoints):
+ * Danh sách method (tương ứng 12 endpoints):
  * ══════════════════════════════════════════════════════════════════
- *  1.  getTasks()              — GET    /api/tasks
- *  2.  getTaskById()           — GET    /api/tasks/{id}
- *  3.  getTasksByRegion()      — GET    /api/regions/{regionId}/tasks
- *  4.  createTask()            — POST   /api/regions/{regionId}/tasks
- *  5.  updateTask()            — PUT    /api/tasks/{id}
- *  6.  updateTaskStatus()      — PATCH  /api/tasks/{id}/status
- *  7.  deleteTask()            — DELETE /api/tasks/{id}
- *  8.  getSubmissions()        — GET    /api/tasks/{taskId}/submissions
- *  9.  submitTask()            — POST   /api/tasks/{taskId}/submissions
- *  10. reviewSubmission()      — PATCH  /api/submissions/{id}/status
- *  11. addAttachment()         — POST   /api/tasks/{taskId}/attachments
- *  12. deleteAttachment()      — DELETE /api/attachments/{id}
+ * 1.  getTasks()              — GET    /api/tasks
+ * 2.  getTaskById()           — GET    /api/tasks/{id}
+ * 3.  getTasksByRegion()      — GET    /api/regions/{regionId}/tasks
+ * 4.  createTask()            — POST   /api/regions/{regionId}/tasks
+ * 5.  updateTask()            — PUT    /api/tasks/{id}
+ * 6.  updateTaskStatus()      — PATCH  /api/tasks/{id}/status
+ * 7.  deleteTask()            — DELETE /api/tasks/{id}
+ * 8.  getSubmissions()        — GET    /api/tasks/{taskId}/submissions
+ * 9.  submitTask()            — POST   /api/tasks/{taskId}/submissions
+ * 10. reviewSubmission()      — PATCH  /api/submissions/{id}/status
+ * 11. addAttachment()         — POST   /api/tasks/{taskId}/attachments
+ * 12. deleteAttachment()      — DELETE /api/attachments/{id}
  */
 @Service
 @RequiredArgsConstructor
@@ -93,6 +94,7 @@ public class TaskService {
     private final TaskAttachmentMapper taskAttachmentMapper;
     private final CloudinaryService cloudinaryService;
     private final LayerService layerService;
+    private final NotificationService notificationService;
 
     // ════════════════════════════════════════════════════════════════
     // 1. GET TASKS — Danh sách tasks (có filter + phân trang)
@@ -108,13 +110,13 @@ public class TaskService {
      * - TANTOU_EDITOR / EDITORIAL_BOARD: thấy tất cả task
      * <p>
      * 📌 Dùng JPA Specification để build WHERE clause động:
-     *    - status, assignedTo, assignedBy, priority, regionId, seriesId
-     *    - role-based filter tự động (ASSISTANT/MANGAKA)
+     * - status, assignedTo, assignedBy, priority, regionId, seriesId
+     * - role-based filter tự động (ASSISTANT/MANGAKA)
      * <p>
      * 📌 seriesId filter:
-     *    Task → Region (regionId) → Page (pageId) → Chapter (chapterId) → Series
-     *    Vì Region không có @ManyToOne với Page, cần query qua pageId.
-     *    → Dùng subquery qua PageRepository để tìm regionIds của series.
+     * Task → Region (regionId) → Page (pageId) → Chapter (chapterId) → Series
+     * Vì Region không có @ManyToOne với Page, cần query qua pageId.
+     * → Dùng subquery qua PageRepository để tìm regionIds của series.
      *
      * @param status     Lọc theo trạng thái (optional)
      * @param assignedTo Lọc theo ASSISTANT ID (optional)
@@ -226,7 +228,7 @@ public class TaskService {
      * 📌 Không phân biệt role — Authenticated đều xem được.
      * <p>
      * 📌 Submissions sắp xếp theo version giảm dần.
-     *    Attachments sắp xếp theo uploadedAt tăng dần.
+     * Attachments sắp xếp theo uploadedAt tăng dần.
      *
      * @param id ID của task
      * @return TaskResponse — chi tiết task + submissions + attachments
@@ -266,9 +268,9 @@ public class TaskService {
      * 📌 Dùng trong workspace — hiển thị tasks của vùng vẽ đang chọn.
      * <p>
      * 📌 Role-based:
-     *    - ASSISTANT: chỉ thấy task của mình trong region này
-     *    - MANGAKA:  chỉ thấy task mình giao trong region này
-     *    - EDITOR:    thấy tất cả task trong region này
+     * - ASSISTANT: chỉ thấy task của mình trong region này
+     * - MANGAKA:  chỉ thấy task mình giao trong region này
+     * - EDITOR:    thấy tất cả task trong region này
      *
      * @param regionId ID của region
      * @param user     User hiện tại (từ JWT)
@@ -321,12 +323,12 @@ public class TaskService {
      * Hệ thống tự động copy pageImageUrl từ region → page sang task.
      * <p>
      * 📌 Quy trình:
-     *    1. Kiểm tra region tồn tại
-     *    2. Kiểm tra assistant tồn tại và có role ASSISTANT
-     *    3. Kiểm tra dueDate ở tương lai (nếu có)
-     *    4. Tạo Task entity — copy pageImageUrl từ page
-     *    5. Lưu vào database
-     *    6. Map sang DTO và trả về
+     * 1. Kiểm tra region tồn tại
+     * 2. Kiểm tra assistant tồn tại và có role ASSISTANT
+     * 3. Kiểm tra dueDate ở tương lai (nếu có)
+     * 4. Tạo Task entity — copy pageImageUrl từ page
+     * 5. Lưu vào database
+     * 6. Map sang DTO và trả về
      *
      * @param regionId    ID của region cần giao việc
      * @param request     DTO từ frontend (title bắt buộc, assistantId bắt buộc)
@@ -419,7 +421,21 @@ public class TaskService {
         // ── Bước 8: Lưu vào database ──
         Task savedTask = taskRepository.save(task);
 
-        // ── Bước 9: Map sang DTO và trả về ──
+        // ── Bước 9: Gửi notification cho ASSISTANT ──
+        // Thông báo: "Có task mới được giao cho bạn"
+        // Frontend click → navigate tới /tasks (vì referenceType = "TASK")
+        notificationService.createAndSend(
+                assistant.getId(),                     // userId: người nhận (ASSISTANT)
+                "TASK_ASSIGNED",                       // type: phân loại
+                "New task: " + task.getTitle(),        // title: tiêu đề ngắn
+                "You have been assigned a new task: " + task.getTitle()
+                        + " in " + task.getRegionType().name()
+                        + " region.",                  // message: nội dung chi tiết
+                "TASK",                                // referenceType: navigate đến /tasks
+                savedTask.getId()                      // referenceId: để lọc task
+        );
+
+        // ── Bước 10: Map sang DTO và trả về ──
         return taskMapper.toResponse(savedTask);
     }
 
@@ -433,9 +449,9 @@ public class TaskService {
      * Cập nhật thông tin task. Chỉ được sửa khi task đang TODO hoặc REJECTED.
      * <p>
      * 📌 Nguyên tắc:
-     *    - Nếu gửi assistantId khác → reset assignedAt = now
-     *    - Nếu gửi dueDate mới → cập nhật
-     *    - Các field không gửi (null) → giữ nguyên giá trị cũ
+     * - Nếu gửi assistantId khác → reset assignedAt = now
+     * - Nếu gửi dueDate mới → cập nhật
+     * - Các field không gửi (null) → giữ nguyên giá trị cũ
      * <p>
      * 📌 Chỉ MANGAKA mới được gọi (kiểm tra ở Controller).
      *
@@ -616,11 +632,11 @@ public class TaskService {
      * Xoá task. Chỉ xoá được khi task đang ở trạng thái TODO.
      * <p>
      * 📌 Cascade: Xoá task → tự động xoá submissions và attachments
-     *    (nhờ cascade = ALL và orphanRemoval = true ở Task entity).
+     * (nhờ cascade = ALL và orphanRemoval = true ở Task entity).
      * <p>
      * 📌 Xoá ảnh Cloudinary trước khi xoá DB:
-     *    - Dù task đang TODO (chưa có submission nào), vẫn gọi cleanup
-     *      để đề phòng trường hợp sau này mở rộng cho phép xoá task có submissions.
+     * - Dù task đang TODO (chưa có submission nào), vẫn gọi cleanup
+     * để đề phòng trường hợp sau này mở rộng cho phép xoá task có submissions.
      *
      * @param id ID của task cần xoá
      * @throws AppException 404 — nếu không tìm thấy task
@@ -689,16 +705,16 @@ public class TaskService {
      * upload lên Cloudinary, sau đó lưu submission vào database.
      * <p>
      * 📌 Điều kiện:
-     *    - User phải là ASSISTANT được gán cho task này
-     *    - Task phải đang IN_PROGRESS hoặc REJECTED
+     * - User phải là ASSISTANT được gán cho task này
+     * - Task phải đang IN_PROGRESS hoặc REJECTED
      * <p>
      * 📌 Version:
-     *    - Lần nộp đầu → version = 1
-     *    - Sau mỗi lần sửa → version + 1
-     *    - Các submission cũ vẫn được giữ lại (lịch sử)
+     * - Lần nộp đầu → version = 1
+     * - Sau mỗi lần sửa → version + 1
+     * - Các submission cũ vẫn được giữ lại (lịch sử)
      * <p>
      * 📌 Cloudinary folder:
-     *    manga_studio/u{userId}/tasks/t{taskId}/submissions/v{version}/
+     * manga_studio/u{userId}/tasks/t{taskId}/submissions/v{version}/
      *
      * @param taskId      ID của task cần nộp bài
      * @param resultImage File ảnh kết quả (MultipartFile) — bắt buộc
@@ -711,10 +727,10 @@ public class TaskService {
      * @throws AppException 400 — nếu task không ở trạng thái cho phép nộp
      */
     public TaskSubmissionResponse submitTask(Long taskId,
-                                              MultipartFile resultImage,
-                                              MultipartFile sourceFile,
-                                              String note,
-                                              CustomUserDetails currentUser) {
+                                             MultipartFile resultImage,
+                                             MultipartFile sourceFile,
+                                             String note,
+                                             CustomUserDetails currentUser) {
         // ── Bước 1: Tìm task ──
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND,
@@ -773,7 +789,21 @@ public class TaskService {
         task.getSubmissions().add(submission);
         taskRepository.save(task);
 
-        // ── Bước 9: Map sang DTO và trả về ──
+        // ── Bước 9: Gửi notification cho MANGAKA ──
+        // Thông báo: "Assistant vừa nộp bài"
+        // Giúp MANGAKA biết có bài cần review mà không cần refresh
+        notificationService.createAndSend(
+                task.getAssignedBy().getId(),           // userId: người nhận (MANGAKA)
+                "TASK_SUBMITTED",                       // type: phân loại
+                "New submission from " + currentUser.getDisplayName(),  // title
+                currentUser.getDisplayName()
+                        + " has submitted work for \"" + task.getTitle()
+                        + "\" (v" + nextVersion + ").", // message: chi tiết
+                "TASK",                                  // referenceType: navigate
+                task.getId()                             // referenceId
+        );
+
+        // ── Bước 10: Map sang DTO và trả về ──
         return taskSubmissionMapper.toResponse(submission);
     }
 
@@ -787,7 +817,7 @@ public class TaskService {
      */
     @Deprecated
     public TaskSubmissionResponse submitTask(Long taskId, TaskSubmissionRequest request,
-                                              CustomUserDetails currentUser) {
+                                             CustomUserDetails currentUser) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND,
                         "Task not found: " + taskId));
@@ -825,6 +855,18 @@ public class TaskService {
         task.getSubmissions().add(submission);
         taskRepository.save(task);
 
+        // Gửi notification cho MANGAKA — tương tự bản multipart
+        notificationService.createAndSend(
+                task.getAssignedBy().getId(),
+                "TASK_SUBMITTED",
+                "New submission from " + currentUser.getDisplayName(),
+                currentUser.getDisplayName()
+                        + " has submitted work for \"" + task.getTitle()
+                        + "\" (v" + nextVersion + ").",
+                "TASK",
+                task.getId()
+        );
+
         return taskSubmissionMapper.toResponse(submission);
     }
 
@@ -844,17 +886,17 @@ public class TaskService {
      * </pre>
      * <p>
      * 📌 Layer tự động khi APPROVED:
-     *    - pageId = task.region.pageId (page chứa region của task)
-     *    - fileUrl = submission.resultImageUrl (kết quả ASSISTANT)
-     *    - thumbnailUrl = fileUrl + transformation w_320
-     *    - label = task.title
-     *    - createdBy = task.assistant (ASSISTANT đã làm task)
-     *    - sortOrder = maxSortOrder(pageId) + 1 (trên cùng)
+     * - pageId = task.region.pageId (page chứa region của task)
+     * - fileUrl = submission.resultImageUrl (kết quả ASSISTANT)
+     * - thumbnailUrl = fileUrl + transformation w_320
+     * - label = task.title
+     * - createdBy = task.assistant (ASSISTANT đã làm task)
+     * - sortOrder = maxSortOrder(pageId) + 1 (trên cùng)
      * <p>
      * 📌 Điều kiện:
-     *    - User phải là MANGAKA đã tạo task này
-     *    - Submission phải đang ở trạng thái SUBMITTED
-     *    - Chỉ chấp nhận APPROVED hoặc REVISION_REQUIRED
+     * - User phải là MANGAKA đã tạo task này
+     * - Submission phải đang ở trạng thái SUBMITTED
+     * - Chỉ chấp nhận APPROVED hoặc REVISION_REQUIRED
      *
      * @param submissionId ID của submission cần duyệt
      * @param newStatus    Trạng thái duyệt: APPROVED hoặc REVISION_REQUIRED
@@ -865,9 +907,9 @@ public class TaskService {
      * @throws AppException 400 — nếu submission không ở SUBMITTED hoặc status không hợp lệ
      */
     public TaskSubmissionResponse reviewSubmission(Long submissionId,
-                                                    TaskSubmissionStatus newStatus,
-                                                    String reviewNote,
-                                                    CustomUserDetails currentUser) {
+                                                   TaskSubmissionStatus newStatus,
+                                                   String reviewNote,
+                                                   CustomUserDetails currentUser) {
         // ── Bước 1: Tìm submission ──
         TaskSubmission submission = taskSubmissionRepository.findById(submissionId)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND,
@@ -912,9 +954,36 @@ public class TaskService {
             // ── Bước 7: Tự động tạo Layer từ submission ──
             // Chỉ tạo Layer khi APPROVED — REVISION_REQUIRED không tạo
             createLayerFromSubmission(submission, task);
+
+            // ── Gửi notification cho ASSISTANT ──
+            // Thông báo: "Bài làm của bạn đã được duyệt"
+            notificationService.createAndSend(
+                    task.getAssistant().getId(),            // userId: ASSISTANT
+                    "TASK_APPROVED",                        // type
+                    "Your work has been approved!",         // title
+                    currentUser.getDisplayName()
+                            + " has approved your work on \""
+                            + task.getTitle() + "\".",     // message
+                    "TASK",                                 // referenceType
+                    task.getId()                            // referenceId
+            );
         } else {
             task.setStatus(TaskStatus.REJECTED);
             taskRepository.save(task);
+
+            // ── Gửi notification cho ASSISTANT ──
+            // Thông báo: "Bài làm cần sửa lại"
+            notificationService.createAndSend(
+                    task.getAssistant().getId(),            // userId: ASSISTANT
+                    "TASK_REVISION_REQUIRED",               // type
+                    "Revision needed for " + task.getTitle(), // title
+                    currentUser.getDisplayName()
+                            + " has requested revisions on \""
+                            + task.getTitle() + "\"."
+                            + (reviewNote != null ? " Note: " + reviewNote : ""), // message
+                    "TASK",                                 // referenceType
+                    task.getId()                            // referenceId
+            );
         }
 
         // ── Bước 8: Map sang DTO và trả về ──
@@ -929,14 +998,14 @@ public class TaskService {
      * Tạo Layer tự động khi MANGAKA APPROVED 1 TaskSubmission.
      * <p>
      * 📌 Dữ liệu lấy từ:
-     *    - pageId:         task.region.pageId (page đang làm việc)
-     *    - fileUrl:        submission.resultImageUrl (ảnh kết quả)
-     *    - thumbnailUrl:   fileUrl + resize w_320 (preview trong LayerPanel)
-     *    - label:          task.title (tên task làm tên layer)
-     *    - user:           task.assistant (ASSISTANT đã làm)
+     * - pageId:         task.region.pageId (page đang làm việc)
+     * - fileUrl:        submission.resultImageUrl (ảnh kết quả)
+     * - thumbnailUrl:   fileUrl + resize w_320 (preview trong LayerPanel)
+     * - label:          task.title (tên task làm tên layer)
+     * - user:           task.assistant (ASSISTANT đã làm)
      * <p>
      * 📌 Nếu task.region hoặc pageId null → không tạo Layer (log warn)
-     *    (tránh crash nếu region bị xoá trước khi duyệt)
+     * (tránh crash nếu region bị xoá trước khi duyệt)
      *
      * @param submission TaskSubmission đã APPROVED
      * @param task       Task chứa submission
@@ -987,11 +1056,11 @@ public class TaskService {
      * thuộc 1 task khỏi Cloudinary.
      * <p>
      * Dùng khi:
-     *   - Task bị REJECTED (IN_PROGRESS → REJECTED)
-     *   - Task bị xoá (deleteTask)
+     * - Task bị REJECTED (IN_PROGRESS → REJECTED)
+     * - Task bị xoá (deleteTask)
      * <p>
      * 📌 Không throw exception nếu xoá 1 ảnh thất bại —
-     *    tiếp tục xoá các ảnh còn lại. Ưu tiên DB operation.
+     * tiếp tục xoá các ảnh còn lại. Ưu tiên DB operation.
      * <p>
      * 📌 Không xoá DB records — chỉ xoá file trên Cloudinary.
      *
@@ -1039,7 +1108,7 @@ public class TaskService {
      * 📌 Chỉ MANGAKA tạo task mới được thêm attachment.
      * <p>
      * 📌 Cloudinary folder:
-     *    manga_studio/u{userId}/tasks/t{taskId}/attachments/{filename}
+     * manga_studio/u{userId}/tasks/t{taskId}/attachments/{filename}
      *
      * @param taskId      ID của task
      * @param file        File từ frontend (MultipartFile)
@@ -1049,7 +1118,7 @@ public class TaskService {
      * @throws AppException 403 — nếu không phải MANGAKA tạo task
      */
     public TaskAttachmentResponse addAttachment(Long taskId, MultipartFile file,
-                                                  CustomUserDetails currentUser) {
+                                                CustomUserDetails currentUser) {
         // ── Bước 1: Tìm task ──
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND,
@@ -1136,10 +1205,10 @@ public class TaskService {
      * 4. Trả về danh sách regionIds
      * <p>
      * 📌 Vì Region không có @ManyToOne với Page, cần query thủ công.
-     *    Sau này nếu thêm quan hệ JPA, có thể dùng criteria join.
+     * Sau này nếu thêm quan hệ JPA, có thể dùng criteria join.
      * <p>
      * 📌 Hiệu năng: Nếu series có nhiều pages (hàng trăm), query này vẫn ổn
-     *    vì là truy vấn đơn giản trên indexed column.
+     * vì là truy vấn đơn giản trên indexed column.
      *
      * @param seriesId ID của series
      * @return List<Long> danh sách regionIds (có thể rỗng)
