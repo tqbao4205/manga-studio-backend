@@ -8,6 +8,7 @@ import com.mangaflow.studio.dto.comment.response.CommentResponse;
 import com.mangaflow.studio.model.comment.Comment;
 import com.mangaflow.studio.model.comment.CommentStatus;
 import com.mangaflow.studio.repository.comment.CommentRepository;
+import com.mangaflow.studio.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -78,6 +79,13 @@ public class CommentService {
      * Tự động map các field cùng tên, đồng thời flat author và parent.
      */
     private final CommentMapper commentMapper;
+
+    /**
+     * notificationService: Dùng để tạo thông báo khi có comment mới
+     * hoặc comment được resolve. Inject vào để gửi notification realtime
+     * qua WebSocket đồng thời persist vào DB.
+     */
+    private final NotificationService notificationService;
 
     // ════════════════════════════════════════════════════════════════
     // 1. GET COMMENTS BY PAGE — Lấy danh sách comments
@@ -251,7 +259,30 @@ public class CommentService {
         // VALUES (?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?, NOW(), NOW())
         Comment savedComment = commentRepository.save(comment);
 
-        // ── Bước 4: Map entity → response DTO + populate replies (rỗng) ──
+        // ── Bước 4: Gửi notification (chỉ khi reply) ──
+        // Nếu comment này là reply (có parent):
+        //   → Thông báo cho tác giả của comment gốc biết có reply mới
+        // Nếu là comment gốc (không parent):
+        //   → Skip vì CommentService không biết ai là chủ page/series
+        //   → Sau này có thể bổ sung bằng cách inject PageRepository
+        //      và ChapterRepository để tìm MANGAKA / TANTOU_EDITOR
+        if (parent != null) {
+            notificationService.createAndSend(
+                    parent.getAuthor().getId(),         // userId: chủ comment gốc
+                    "COMMENT_ADDED",                     // type
+                    "New reply from " + user.getDisplayName(),  // title
+                    user.getDisplayName()
+                            + " replied to your comment: \""
+                            + (comment.getContent().length() > 80
+                                ? comment.getContent().substring(0, 80) + "..."
+                                : comment.getContent())
+                            + "\"",                      // message
+                    "COMMENT",                           // referenceType
+                    parent.getId()                       // referenceId: comment gốc
+            );
+        }
+
+        // ── Bước 5: Map entity → response DTO + populate replies (rỗng) ──
         return buildCommentTree(savedComment);
     }
 
@@ -445,7 +476,28 @@ public class CommentService {
         // UPDATE comments SET status = ?, updated_at = NOW() WHERE id = ?
         Comment savedComment = commentRepository.save(comment);
 
-        // ── Bước 4: Map + populate replies → trả về ──
+        // ── Bước 4: Gửi notification nếu chuyển sang RESOLVED ──
+        // Khi 1 comment được resolve (giải quyết xong):
+        //   → Thông báo cho tác giả comment biết rằng comment của họ
+        //     đã được xử lý xong (bởi MANGAKA / TANTOU_EDITOR)
+        // Không gửi khi chuyển sang ACTIVE (reopen) — chỉ gửi khi resolve
+        if (status == CommentStatus.RESOLVED) {
+            notificationService.createAndSend(
+                    comment.getAuthor().getId(),            // userId: tác giả comment
+                    "COMMENT_RESOLVED",                      // type
+                    "Your comment has been resolved",        // title
+                    user.getDisplayName()
+                            + " resolved your comment: \""
+                            + (comment.getContent().length() > 80
+                                ? comment.getContent().substring(0, 80) + "..."
+                                : comment.getContent())
+                            + "\"",                          // message
+                    "COMMENT",                               // referenceType
+                    comment.getId()                          // referenceId
+            );
+        }
+
+        // ── Bước 5: Map + populate replies → trả về ──
         return buildCommentTree(savedComment);
     }
 
