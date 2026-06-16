@@ -3,8 +3,9 @@ package com.mangaflow.studio.dto.series.request;
 import com.mangaflow.studio.model.series.Genre;
 import com.mangaflow.studio.model.series.TargetDemographic;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
+import java.util.List;
 
 /**
  * ── SeriesRequest DTO ──
@@ -13,9 +14,9 @@ import lombok.Data;
  * 📌 @Data (Lombok): Tự sinh getter, setter cho tất cả field.
  *
  * 📌 Validation:
- *    title → @NotBlank (bắt buộc, không được để trống)
- *    genre → @NotNull (bắt buộc)
- *    targetDemographic → @NotNull (bắt buộc)
+ *    title   → @NotBlank (bắt buộc)
+ *    genres  → @NotEmpty (ít nhất 1 genre)
+ *    targetDemographics → @NotEmpty (ít nhất 1 demographic)
  *    Các field còn lại → optional (nullable)
  *
  * 📌 Dùng trong:
@@ -50,18 +51,20 @@ public class SeriesRequest {
     private String synopsis;
 
     /**
-     * genre: Thể loại (bắt buộc).
-     * Client gửi dạng string → Jackson tự động parse sang Genre enum.
-     * Nếu sai → GlobalExceptionHandler báo lỗi kèm danh sách enum hợp lệ.
+     * genres: Danh sách thể loại (bắt buộc, ít nhất 1).
+     * Client gửi JSON array → Jackson tự động parse từng phần tử sang Genre enum.
+     * Vd: ["ACTION", "FANTASY"].
+     * @NotEmpty → không được null, không được rỗng.
      */
-    @NotNull(message = "Genre is required")
-    private Genre genre;
+    @NotEmpty(message = "At least one genre is required")
+    private List<Genre> genres;
 
     /**
-     * targetDemographic: Đối tượng độc giả (bắt buộc).
+     * targetDemographics: Danh sách đối tượng độc giả (bắt buộc, ít nhất 1).
+     * Vd: ["SHONEN", "SEINEN"].
      */
-    @NotNull(message = "Target demographic is required")
-    private TargetDemographic targetDemographic;
+    @NotEmpty(message = "At least one demographic is required")
+    private List<TargetDemographic> targetDemographics;
 
     /**
      * coverColor: Màu nền cho card (tuỳ chọn).
@@ -74,11 +77,4 @@ public class SeriesRequest {
      * Hiện tại chưa có upload → có thể để null.
      */
     private String coverImageUrl;
-
-    /**
-     * isMature: Đánh dấu 18+ (tuỳ chọn).
-     * Boolean (wrapper) → có thể null → Service xử lý null-safe.
-     * Nếu null khi create → mặc định false (trong Entity).
-     */
-    private Boolean isMature;
 }

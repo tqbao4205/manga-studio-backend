@@ -7,6 +7,8 @@ import com.mangaflow.studio.model.series.TargetDemographic;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * ── Series Entity ──
@@ -62,19 +64,33 @@ public class Series {
     private String synopsis;
 
     /**
-     * genre: Thể loại (ACTION, FANTASY, ...).
-     * @Enumerated(STRING) → lưu tên enum dạng chữ, không phải số.
+     * genres: Danh sách thể loại (ACTION, FANTASY, ...).
+     * @ElementCollection → tạo bảng phụ "series_genres"
+     * (series_id, genre) để lưu nhiều genre cho 1 series.
+     * Không cần entity riêng, Hibernate tự quản lý.
      */
+    @ElementCollection
+    @CollectionTable(
+        name = "series_genres",
+        joinColumns = @JoinColumn(name = "series_id")
+    )
+    @Column(name = "genre", nullable = false)
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Genre genre;
+    private List<Genre> genres = new ArrayList<>();
 
     /**
-     * targetDemographic: Đối tượng độc giả (SHONEN, SHOJO, ...).
+     * targetDemographics: Danh sách đối tượng độc giả (SHONEN, SHOJO, ...).
+     * @ElementCollection → tạo bảng phụ "series_target_demographics"
+     * (series_id, target_demographic).
      */
+    @ElementCollection
+    @CollectionTable(
+        name = "series_target_demographics",
+        joinColumns = @JoinColumn(name = "series_id")
+    )
+    @Column(name = "target_demographic", nullable = false)
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private TargetDemographic targetDemographic;
+    private List<TargetDemographic> targetDemographics = new ArrayList<>();
 
     /**
      * status: Trạng thái hiện tại của series (DRAFT, ONGOING, ...).
@@ -97,14 +113,6 @@ public class Series {
     private String coverImageUrl;
 
     /**
-     * isMature: Cờ đánh dấu nội dung người lớn (18+).
-     * Mặc định false — @Builder.Default để Lombok không gán null.
-     */
-    @Builder.Default
-    @Column(nullable = false)
-    private Boolean isMature = false;
-
-    /**
      * mangaka: Tác giả của series (N:1 với User).
      * LAZY fetch → chỉ load khi truy cập (tránh N+1 query).
      * JoinColumn "mangaka_id" trong bảng series.
@@ -114,13 +122,24 @@ public class Series {
     private User mangaka;
 
     /**
-     * tantouEditor: Biên tập viên phụ trách (N:1 với User, nullable).
+     * tantouEditor: Biên tập viên phụ trách (N:1 với users, nullable).
      * Được Editorial Board gán khi duyệt series (approve).
      * NULL nếu chưa có editor.
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "tantou_editor_id")
     private User tantouEditor;
+
+    /**
+     * characters: Danh sách nhân vật thuộc series này (1:N).
+     * mappedBy = "series" — Character entity giữ khoá ngoại (series_id).
+     * cascade = ALL + orphanRemoval = true — xoá Series → xoá luôn Characters.
+     * @ToString.Exclude — tránh vòng lặp vô hạn khi log (Character.series → Series.characters → ...).
+     */
+    @OneToMany(mappedBy = "series", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Character> characters = new ArrayList<>();
 
     /**
      * chapterCount: Số chapter đã xuất bản.
@@ -141,16 +160,6 @@ public class Series {
      * Denormalized field từ module Ranking.
      */
     private String currentTier;
-
-    /**
-     * statusNote: Ghi chú kèm trạng thái hiện tại.
-     * Tại sao cần field này?
-     * - Khi Tantou reject, lưu lý do reject để Mangaka biết đường sửa.
-     * - Khi Chief Editor APPROVED/REJECTED, lưu quyết định kèm lý do.
-     * - Tránh phải tạo bảng riêng cho log.
-     */
-    @Column(columnDefinition = "NVARCHAR(MAX)")
-    private String statusNote;
 
     /**
      * createdAt: Thời điểm tạo series.
