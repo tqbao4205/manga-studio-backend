@@ -739,6 +739,86 @@ public class CloudinaryService {
     }
 
     // ════════════════════════════════════════════════════════════════
+    //  CHARACTER SKETCH METHODS (dành cho upload ảnh phác thảo nhân vật)
+    // ════════════════════════════════════════════════════════════════
+
+    /**
+     * ── uploadCharacterSketch ──
+     * Upload 1 file ảnh sketch của character lên Cloudinary.
+     * Được CharacterService.create() gọi khi frontend gửi multipart files.
+     *
+     * 📌 Cấu trúc thư mục:
+     *    manga_studio/series/s{seriesId}/characters/c{characterId}/sketch_{index}.jpg
+     *
+     *    Giải thích từng cấp:
+     *    - manga_studio                          : thư mục gốc (cố định)
+     *    - series                                 : tất cả ảnh liên quan series
+     *    - s{seriesId}                           : series ID (vd: s1)
+     *    - characters                            : thư mục chứa sketches
+     *    - c{characterId}                        : character ID (vd: c5)
+     *    - sketch_{index}                        : file ảnh, đánh số thứ tự
+     *
+     * 📌 overwrite = true:
+     *    Nếu update character (gửi lại ảnh cùng index) → ghi đè file cũ.
+     *
+     * @param file         File ảnh từ frontend (MultipartFile)
+     * @param seriesId     ID của series — dùng để tạo folder path
+     * @param characterId  ID của character — dùng để tạo folder path
+     * @param index        Thứ tự sketch (0, 1, 2, ...) — tối đa 5 ảnh
+     * @return URL đầy đủ của ảnh trên Cloudinary
+     */
+    public String uploadCharacterSketch(MultipartFile file, Long seriesId, Long characterId, int index) {
+        try {
+            String folder = "manga_studio/series/s" + seriesId
+                    + "/characters/c" + characterId;
+            String publicId = "sketch_" + index;
+
+            Map<?, ?> result = cloudinary.uploader().upload(
+                    file.getBytes(),
+                    ObjectUtils.asMap(
+                            "folder", folder,
+                            "public_id", publicId,
+                            "resource_type", "image",
+                            "overwrite", true
+                    )
+            );
+
+            return (String) result.get("url");
+
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to upload character sketch to Cloudinary", e);
+        }
+    }
+
+    /**
+     * ── deleteCharacterFolder ──
+     * Xoá toàn bộ thư mục character trên Cloudinary khi character bị DELETE.
+     * Bao gồm tất cả sketch_{index} ảnh bên trong.
+     *
+     * 📌 Cơ chế 2 bước:
+     *    1. Xoá tất cả resources có prefix là folder path
+     *    2. Xoá folder rỗng
+     *
+     * @param seriesId     ID của series — dùng để tạo folder path
+     * @param characterId  ID của character — dùng để tạo folder path
+     */
+    public void deleteCharacterFolder(Long seriesId, Long characterId) {
+        try {
+            String prefix = "manga_studio/series/s" + seriesId
+                    + "/characters/c" + characterId;
+
+            cloudinary.api().deleteResourcesByPrefix(prefix,
+                    ObjectUtils.emptyMap());
+            cloudinary.api().deleteFolder(prefix,
+                    ObjectUtils.emptyMap());
+
+        } catch (Exception e) {
+            // Không throw exception nếu folder không tồn tại
+            // (character mới tạo chưa có upload ảnh nào)
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════
     //  MERGE METHODS (dành cho composite layers → final image)
     // ════════════════════════════════════════════════════════════════
 

@@ -124,14 +124,13 @@ public class DataSeeder implements CommandLineRunner {
                 .title("Blade of the Samurai")
                 .titleJp("侍の刃")
                 .synopsis("Một samurai lang thang tìm kiếm thanh kiếm huyền thoại để bảo vệ vương quốc.")
-                .genre(Genre.ACTION)
-                .targetDemographic(TargetDemographic.SHONEN)
+                .genres(List.of(Genre.ACTION))
+                .targetDemographics(List.of(TargetDemographic.SHONEN))
                 .status(SeriesStatus.PENDING_BOARD_VOTE)
                 .coverColor("#FF4500")
                 .mangaka(ichikawa)
                 .tantouEditor(sato)
                 .chapterCount(0)
-                .isMature(false)
                 .build();
 
         seriesRepository.save(series);
