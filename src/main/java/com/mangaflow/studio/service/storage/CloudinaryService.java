@@ -819,6 +819,85 @@ public class CloudinaryService {
     }
 
     // ════════════════════════════════════════════════════════════════
+    //  VISUAL REF METHODS (dành cho upload ảnh Visual References)
+    // ════════════════════════════════════════════════════════════════
+
+    /**
+     * ── uploadVisualRef ──
+     * Upload 1 file ảnh visual reference lên Cloudinary.
+     * Được SeriesStoryProfileService.update() gọi khi FE gửi multipart files.
+     *
+     * 📌 Cấu trúc thư mục:
+     *    manga_studio/series/s{seriesId}/visual-refs/v{index}.jpg
+     *
+     *    Giải thích từng cấp:
+     *    - manga_studio                    : thư mục gốc (cố định)
+     *    - series                           : tất cả ảnh liên quan series
+     *    - s{seriesId}                     : series ID (vd: s1)
+     *    - visual-refs                     : thư mục chứa visual references
+     *    - v{index}                        : file ảnh, đánh số thứ tự (0, 1, 2...)
+     *
+     * 📌 overwrite = true:
+     *    Nếu update (gửi lại ảnh cùng index) → ghi đè file cũ.
+     *
+     * @param file      File ảnh từ frontend (MultipartFile)
+     * @param seriesId  ID của series — dùng để tạo folder path
+     * @param index     Thứ tự visual ref (0, 1, 2...) — dùng để tạo public_id
+     * @return URL đầy đủ của ảnh trên Cloudinary
+     */
+    public String uploadVisualRef(MultipartFile file, Long seriesId, int index) {
+        try {
+            String folder = "manga_studio/series/s" + seriesId
+                    + "/visual-refs";
+            String publicId = "v" + index;
+
+            Map<?, ?> result = cloudinary.uploader().upload(
+                    file.getBytes(),
+                    ObjectUtils.asMap(
+                            "folder", folder,
+                            "public_id", publicId,
+                            "resource_type", "image",
+                            "overwrite", true
+                    )
+            );
+
+            return (String) result.get("url");
+
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to upload visual ref to Cloudinary", e);
+        }
+    }
+
+    /**
+     * ── deleteVisualRefsFolder ──
+     * Xoá toàn bộ thư mục visual-refs trên Cloudinary khi story profile update
+     * mà FE không giữ lại URL nào (xoá tất cả references).
+     *
+     * 📌 Cơ chế 2 bước (giống deleteCharacterFolder):
+     *    1. Xoá tất cả resources có prefix là folder path
+     *    2. Xoá folder rỗng
+     *
+     * @param seriesId  ID của series — dùng để tạo folder path
+     */
+    public void deleteVisualRefsFolder(Long seriesId) {
+        try {
+            String prefix = "manga_studio/series/s" + seriesId
+                    + "/visual-refs";
+
+            cloudinary.api().deleteResourcesByPrefix(prefix,
+                    ObjectUtils.emptyMap());
+            cloudinary.api().deleteFolder(prefix,
+                    ObjectUtils.emptyMap());
+
+        } catch (Exception e) {
+            // Không throw exception nếu folder không tồn tại
+            // (series mới tạo chưa có upload visual ref nào)
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  TASK IMAGE METHODS (dành cho upload ảnh task của assistant)
+    // ════════════════════════════════════════════════════════════════
     //  MERGE METHODS (dành cho composite layers → final image)
     // ════════════════════════════════════════════════════════════════
 

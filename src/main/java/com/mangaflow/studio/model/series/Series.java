@@ -141,6 +141,47 @@ public class Series {
     @EqualsAndHashCode.Exclude
     private List<Character> characters = new ArrayList<>();
 
+    // ════════════════════════════════════════════════════════════════
+    //  World & Plots fields — StoryProfile
+    // ════════════════════════════════════════════════════════════════
+
+    /**
+     * worldLoreContent: Nội dung World Lore (HTML string từ RichEditor).
+     * Lưu trực tiếp trong bảng series (cột TEXT), không cần bảng phụ.
+     * FE gửi trong "storyProfile" JSON blob → PUT /{id}/story-profile.
+     */
+    @Column(columnDefinition = "TEXT")
+    private String worldLoreContent;
+
+    /**
+     * storyRoadmap: Danh sách các Arc trong Story Roadmap.
+     * @ElementCollection → tạo bảng phụ "series_story_roadmap"
+     * (series_id, title, summary) — dùng RoadmapArc @Embeddable.
+     */
+    @ElementCollection
+    @CollectionTable(
+        name = "series_story_roadmap",
+        joinColumns = @JoinColumn(name = "series_id")
+    )
+    private List<RoadmapArc> storyRoadmap = new ArrayList<>();
+
+    /**
+     * visualRefUrls: Danh sách URL ảnh Visual References từ Cloudinary.
+     * @ElementCollection → tạo bảng phụ "series_visual_ref_urls"
+     * (series_id, ref_url).
+     * Pattern giống hệt Character.sketchUrls (@ElementCollection).
+     * Upload qua multipart với key "files", merge với preservedVisualRefUrls.
+     */
+    @ElementCollection
+    @CollectionTable(
+        name = "series_visual_ref_urls",
+        joinColumns = @JoinColumn(name = "series_id")
+    )
+    @Column(name = "ref_url", nullable = false)
+    private List<String> visualRefUrls = new ArrayList<>();
+
+    // ────────────────────────────────────────────────────────────────
+
     /**
      * chapterCount: Số chapter đã xuất bản.
      * Denormalized field — lưu trực tiếp để tránh join bảng chapters
