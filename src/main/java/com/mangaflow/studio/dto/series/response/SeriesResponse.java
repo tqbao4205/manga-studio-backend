@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -16,12 +17,11 @@ public class SeriesResponse {
     private String title;
     private String titleJp;
     private String synopsis;
-    private String genre;
-    private String targetDemographic;
+    private List<String> genres;
+    private List<String> targetDemographics;
     private String status;
     private String coverColor;
     private String coverImageUrl;
-    private Boolean isMature;
     private UserDTO mangaka;
     private UserDTO tantouEditor;
     private Integer chapterCount;

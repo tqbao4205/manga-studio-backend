@@ -8,6 +8,7 @@ import com.mangaflow.studio.model.page.Page;
 import com.mangaflow.studio.model.page.PageStatus;
 import com.mangaflow.studio.repository.page.LayerRepository;
 import com.mangaflow.studio.repository.page.PageRepository;
+import com.mangaflow.studio.service.chapter.ChapterService;
 import com.mangaflow.studio.service.page.LayerService;
 import com.mangaflow.studio.service.storage.CloudinaryService;
 import lombok.RequiredArgsConstructor;
@@ -88,6 +89,11 @@ public class PageService {
      * Dùng trong flattenPage() — xoá tất cả layers của page (DB + Cloudinary).
      */
     private final LayerService layerService;
+
+    /**
+     * chapterService: Service xử lý Chapter — dùng để recalculateProgress.
+     */
+    private final ChapterService chapterService;
 
     // ════════════════════════════════════════════════════════════════
     // 1. GET PAGES BY CHAPTER — Lấy danh sách pages
@@ -176,6 +182,8 @@ public class PageService {
             savedPage.setWidth(uploadResult.getWidth());
             savedPage.setHeight(uploadResult.getHeight());
             pageRepository.save(savedPage);
+
+            chapterService.recalculateProgress(chapterId);
 
             return pageMapper.toResponse(savedPage);
 
@@ -271,6 +279,8 @@ public class PageService {
         Page page = pageRepository.findById(pageId)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Page not found"));
 
+        Long chapterId = page.getChapterId();
+
         // ── Bước 2: Xoá ảnh trên Cloudinary ──
         // Dùng publicId để xoá (không cần version, format)
         // Nếu lỗi → throw RuntimeException (GlobalExceptionHandler xử lý)
@@ -281,6 +291,9 @@ public class PageService {
 
         // ── Bước 4: Xoá record trong database ──
         pageRepository.delete(page);
+
+        // ── Bước 5: Cập nhật progress ──
+        chapterService.recalculateProgress(chapterId);
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -479,7 +492,7 @@ public class PageService {
 
         try {
             // ── Bước 4: Download ảnh nền (base page) ──
-            // Dùng originalImageUrl — ảnh gốc full size
+            // Luôn dùng originalImageUrl — ảnh gốc full size ổn định (không bị overwrite)
             BufferedImage baseImage = ImageIO.read(new URL(page.getOriginalImageUrl()));
 
             // ── Bước 5: Composite từng layer vào ảnh nền ──
@@ -528,20 +541,12 @@ public class PageService {
             // Giải phóng baseImage
             baseImage.flush();
 
-            // ── Bước 6: Xoá ảnh merge cũ (nếu có) ──
-            if (page.getFinalImageUrl() != null) {
-                try {
-                    cloudinaryService.deleteImageByUrl(page.getFinalImageUrl());
-                } catch (Exception ignored) {
-                    // Không throw — ưu tiên upload merge mới
-                }
-            }
-
             // ── Bước 6: Upload ảnh đã merge lên Cloudinary ──
+            // uploadPageMerge dùng public_id "final" + overwrite:true → tự ghi đè ảnh cũ
             CloudinaryService.UploadPageMergeResult mergeResult = cloudinaryService.uploadPageMerge(
                     compositeImage, page.getChapterId(), page.getId());
 
-            // ── Bước 8: Cập nhật URLs của page ──
+            // ── Bước 7: Cập nhật URLs của page ──
             page.setFinalImageUrl(mergeResult.getFinalImageUrl());
             page.setWebImageUrl(mergeResult.getWebImageUrl());
             page.setThumbnailUrl(mergeResult.getThumbnailUrl());
@@ -607,5 +612,31 @@ public class PageService {
         // ── Bước 6: Lưu page và trả về ──
         Page savedPage = pageRepository.save(page);
         return pageMapper.toResponse(savedPage);
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  7. UPDATE STATUS — Đánh dấu page hoàn thành
+    // ════════════════════════════════════════════════════════════════
+
+    /**
+     * Cập nhật trạng thái của 1 page (VD: đánh dấu COMPLETED).
+     * <p>
+     * Sau khi cập nhật, tự động tính lại progressPercent của chapter.
+     *
+     * @param pageId ID của page cần cập nhật
+     * @param status Trạng thái mới (VD: COMPLETED)
+     * @return PageResponse — page đã cập nhật
+     * @throws AppException 404 — nếu không tìm thấy page
+     */
+    public PageResponse updateStatus(Long pageId, PageStatus status) {
+        Page page = pageRepository.findById(pageId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "Page not found: " + pageId));
+
+        page.setStatus(status);
+        Page saved = pageRepository.save(page);
+
+        chapterService.recalculateProgress(page.getChapterId());
+
+        return pageMapper.toResponse(saved);
     }
 }

@@ -22,6 +22,12 @@ public class MeetingResponse {
     @Schema(description = "Tên series", example = "One Piece")
     private String seriesTitle;
 
+    @Schema(description = "URL ảnh bìa series", example = "https://example.com/cover.jpg")
+    private String seriesCoverImageUrl;
+
+    @Schema(description = "Màu nền fallback của series", example = "#1a1a2e")
+    private String seriesCoverColor;
+
     @Schema(description = "Tiêu đề cuộc họp", example = "Họp phê duyệt series: One Piece")
     private String title;
 
@@ -79,8 +85,11 @@ public class MeetingResponse {
     @Builder
     @Schema(description = "Tổng hợp kết quả vote")
     public static class VoteSummary {
-        @Schema(description = "Tổng số phiếu", example = "4")
+        @Schema(description = "Tổng số phiếu đã vote", example = "4")
         private long totalVotes;
+
+        @Schema(description = "Tổng số EDITORIAL_BOARD được mời (không tính Tantou)", example = "3")
+        private long totalBoardMembers;
 
         @Schema(description = "Số phiếu YES", example = "3")
         private long yesCount;

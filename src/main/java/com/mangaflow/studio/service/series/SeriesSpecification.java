@@ -30,11 +30,13 @@ public class SeriesSpecification {
             }
 
             if (genre != null) {
-                predicates.add(cb.equal(root.get("genre"), genre));
+                // isMember = :genre MEMBER OF series.genres
+                // Kiểm tra genre có trong List<Genre> genres không
+                predicates.add(cb.isMember(genre, root.get("genres")));
             }
 
             if (targetDemographic != null) {
-                predicates.add(cb.equal(root.get("targetDemographic"), targetDemographic));
+                predicates.add(cb.isMember(targetDemographic, root.get("targetDemographics")));
             }
 
             if (search != null && !search.isBlank()) {

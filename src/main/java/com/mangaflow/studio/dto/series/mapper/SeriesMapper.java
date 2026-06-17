@@ -48,19 +48,19 @@ public interface SeriesMapper {
      * 📌 Dùng ở tất cả các endpoint trả về dữ liệu:
      *    GET /api/series, GET /api/series/{id}, POST, PUT, submit, approve,...
      *
-     * 📌 MapStruct tự động xử lý:
-     *    - Enum → String: genre (Genre), targetDemographic (TargetDemographic), status (SeriesStatus)
-     *      → tự gọi .name() vì source là enum, target là String.
+      * 📌 MapStruct tự động xử lý:
+     *    - List<Enum> → List<String>: genres, targetDemographics, status
+     *      → tự gọi .name() trên từng phần tử.
      *    - Nested User → UserDTO: mangaka, tantouEditor
      *      → tự gọi UserMapper.toDTO() nhờ @Mapper(uses = UserMapper.class).
      *    - Null safety: tantouEditor có thể null → MapStruct tự xử lý, trả về null.
      *    - Các field cùng tên (id, title, coverColor, ...): tự map không cần cấu hình.
      *
-     * 📌 Không cần @Mapping nào — vì field names giống nhau giữa Entity và DTO:
-     *    Series.id         → SeriesResponse.id        (cùng tên)
-     *    Series.title      → SeriesResponse.title     (cùng tên)
-     *    Series.genre      → SeriesResponse.genre     (enum→String tự động)
-     *    Series.mangaka    → SeriesResponse.mangaka   (User→UserDTO nhờ UserMapper)
+      * 📌 Không cần @Mapping nào — vì field names giống nhau giữa Entity và DTO:
+     *    Series.id               → SeriesResponse.id           (cùng tên)
+     *    Series.title            → SeriesResponse.title        (cùng tên)
+     *    Series.genres           → SeriesResponse.genres       (List<Genre>→List<String> tự động)
+     *    Series.mangaka          → SeriesResponse.mangaka      (User→UserDTO nhờ UserMapper)
      *
      * @param series Entity từ database
      * @return SeriesResponse DTO không chứa password hay lazy references
@@ -79,11 +79,10 @@ public interface SeriesMapper {
      * 📌 @Mapping rules:
      * ═══════════════════════════════════════════════════════════
      * Field              │ Cấu hình           │ Giải thích
-     * ═══════════════════════════════════════════════════════════
-     * id                 │ ignore = true      │ DB tự sinh (IDENTITY), không nhận từ request
-     * status             │ constant = "DRAFT" │ Mặc định DRAFT — client không được chọn status
-     * isMature           │ expression         │ null → false (Boolean wrapper an toàn)
-     * mangaka            │ source = mangaka   │ Lấy từ tham số thứ 2 của method
+      * ═══════════════════════════════════════════════════════════
+      * id                 │ ignore = true      │ DB tự sinh (IDENTITY), không nhận từ request
+      * status             │ constant = "DRAFT" │ Mặc định DRAFT — client không được chọn status
+      * mangaka            │ source = mangaka   │ Lấy từ tham số thứ 2 của method
      * tantouEditor       │ ignore = true      │ Chưa có editor khi tạo mới
      * chapterCount       │ ignore = true      │ Denormalized — module Chapter sau này quản lý
      * currentRank        │ ignore = true      │ Denormalized — module Ranking sau này quản lý
@@ -91,25 +90,16 @@ public interface SeriesMapper {
      * createdAt          │ ignore = true      │ @PrePersist tự động set
      * updatedAt          │ ignore = true      │ @PrePersist tự động set
      * ═══════════════════════════════════════════════════════════
-     * Các field còn lại  │ (không cấu hình)   │ Tự động map vì cùng tên với SeriesRequest
-     *                    │                    │ title, titleJp, synopsis, genre,
-     *                    │                    │ targetDemographic, coverColor, coverImageUrl
+      * Các field còn lại  │ (không cấu hình)   │ Tự động map vì cùng tên với SeriesRequest
+     *                    │                    │ title, titleJp, synopsis, genres,
+     *                    │                    │ targetDemographics, coverColor, coverImageUrl
      *
-     * 📌 Expression: isMature
-     *    expression = "java(request.getIsMature() != null && request.getIsMature())"
-     *    - request.getIsMature() == null → false (mặc định không 18+)
-     *    - request.getIsMature() == false → false
-     *    - request.getIsMature() == true → true
-     *    ⚠️ Java expression trong @Mapping phải là Java code hợp lệ, MapStruct gen vào impl.
-     *
-     * @param request DTO từ client (chứa title, genre, ...)
+     * @param request DTO từ client (chứa title, genres, ...)
      * @param mangaka User entity — tác giả (lấy từ user đang đăng nhập)
      * @return Series entity sẵn sàng để repository.save()
      */
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "status", constant = "DRAFT")
-    @Mapping(target = "isMature",
-             expression = "java(request.getIsMature() != null && request.getIsMature())")
     @Mapping(target = "mangaka", source = "mangaka")
     @Mapping(target = "tantouEditor", ignore = true)
     @Mapping(target = "chapterCount", ignore = true)
@@ -142,7 +132,7 @@ public interface SeriesMapper {
      * ═══════════════════════════════════════════════════════════
      * Ví dụ: request chỉ gửi { "title": "New Title" }
      * → MapStruct chỉ set series.title = "New Title"
-     * → Các field khác (synopsis, genre, coverColor, ...) giữ nguyên.
+     * → Các field khác (synopsis, genres, coverColor, ...) giữ nguyên.
      * ═══════════════════════════════════════════════════════════
      *
      * 📌 Các field ignore (không được update qua endpoint này):
@@ -152,13 +142,8 @@ public interface SeriesMapper {
      *    - tantouEditor:    do Editorial Board gán khi approve
      *    - chapterCount, currentRank, currentTier: denormalized
      *    - createdAt, updatedAt: lifecycle callback tự động
-     *
-     * 📌 Lưu ý về Boolean isMature với IGNORE strategy:
-     *    Nếu client gửi isMature = null → bỏ qua (giữ nguyên).
-     *    Nếu client gửi isMature = true/false → set giá trị mới.
-     *    Không cần expression kiểm tra null như toEntity() vì IGNORE đã xử lý.
-     *
-     * @param series  Entity hiện tại (sẽ bị mutate — @MappingTarget)
+      *
+      * @param series  Entity hiện tại (sẽ bị mutate — @MappingTarget)
      * @param request DTO chứa các field muốn thay đổi (null → giữ nguyên)
      */
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
