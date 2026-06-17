@@ -2,13 +2,16 @@ package com.mangaflow.studio.controller.series;
 
 import com.mangaflow.studio.common.security.CustomUserDetails;
 import com.mangaflow.studio.dto.series.request.SeriesRequest;
+import com.mangaflow.studio.dto.series.request.StoryProfileRequest;
 import com.mangaflow.studio.dto.series.request.UpdateStatusRequest;
 import com.mangaflow.studio.dto.series.response.SeriesResponse;
+import com.mangaflow.studio.dto.series.response.StoryProfileResponse;
 import com.mangaflow.studio.model.series.Genre;
 import com.mangaflow.studio.model.series.SeriesSortBy;
 import com.mangaflow.studio.model.series.SeriesStatus;
 import com.mangaflow.studio.model.series.TargetDemographic;
 import com.mangaflow.studio.service.series.SeriesService;
+import com.mangaflow.studio.service.series.SeriesStoryProfileService;
 import com.mangaflow.studio.service.series.SeriesWorkflowService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -30,6 +33,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/series")
 @RequiredArgsConstructor
@@ -37,6 +42,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class SeriesController {
 
     private final SeriesService seriesService;
+    private final SeriesStoryProfileService seriesStoryProfileService;
     private final SeriesWorkflowService seriesWorkflowService;
 
     @Operation(summary = "Danh sách series",
@@ -172,5 +178,41 @@ public class SeriesController {
             @Valid @RequestBody UpdateStatusRequest request,
             @AuthenticationPrincipal CustomUserDetails user) {
         return ResponseEntity.ok(seriesWorkflowService.updateStatus(id, request, user));
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  STORY PROFILE ENDPOINTS (World Lore + Roadmap + Visual Refs)
+    // ════════════════════════════════════════════════════════════════
+
+    /**
+     * ── GET /api/series/{id}/story-profile ──
+     * Lấy story profile của series (world lore, roadmap, visual refs).
+     * Public — ai cũng xem được.
+     */
+    @Operation(summary = "Lấy story profile",
+               description = "Lấy world lore, story roadmap và visual references của series.")
+    @GetMapping("/{id}/story-profile")
+    public ResponseEntity<StoryProfileResponse> getStoryProfile(@PathVariable Long id) {
+        return ResponseEntity.ok(seriesStoryProfileService.getStoryProfile(id));
+    }
+
+    /**
+     * ── PUT /api/series/{id}/story-profile ──
+     * Cập nhật story profile của series.
+     * Multipart: "storyProfile" (JSON) + "files" (ảnh visual refs mới, tuỳ chọn).
+     * Chỉ MANGAKA mới được gọi.
+     */
+    @Operation(summary = "Cập nhật story profile",
+               description = "Mangaka cập nhật world lore, story roadmap và visual references. "
+                           + "Gửi multipart: storyProfile (JSON) + files (ảnh).")
+    @PutMapping(value = "/{id}/story-profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('MANGAKA')")
+    public ResponseEntity<StoryProfileResponse> updateStoryProfile(
+            @PathVariable Long id,
+            @RequestPart("storyProfile") StoryProfileRequest request,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        return ResponseEntity.ok(
+                seriesStoryProfileService.updateStoryProfile(id, request, files, user));
     }
 }
