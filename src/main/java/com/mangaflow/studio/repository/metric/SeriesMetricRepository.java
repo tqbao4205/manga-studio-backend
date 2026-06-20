@@ -1,7 +1,10 @@
 package com.mangaflow.studio.repository.metric;
 
 import com.mangaflow.studio.model.metric.SeriesMetric;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -55,4 +58,29 @@ public interface SeriesMetricRepository extends JpaRepository<SeriesMetric, Long
      * @return true nếu đã tồn tại
      */
     boolean existsBySeriesIdAndMonth(Long seriesId, String month);
+
+    // ═══════════════════════════════════════════════════════════
+    //  DASHBOARD STATISTICS — Thêm cho Series Statistics Feature
+    // ═══════════════════════════════════════════════════════════
+
+    /**
+     * Lấy top N series trong một tháng, sắp xếp theo compositeScore giảm dần.
+     * Dùng trong ChiefDashboardService.topSeries(): lấy danh sách xếp hạng.
+     *
+     * @param month    Tháng cần lấy ("YYYY-MM")
+     * @param pageable PageRequest với limit (vd: PageRequest.of(0, 10))
+     * @return Danh sách SeriesMetric sắp xếp theo compositeScore DESC
+     */
+    @Query("SELECT sm FROM SeriesMetric sm WHERE sm.month = :month " +
+           "ORDER BY sm.compositeScore DESC")
+    List<SeriesMetric> findTopByMonth(@Param("month") String month, Pageable pageable);
+
+    /**
+     * Tìm metric gần nhất của 1 series (theo tháng mới nhất).
+     * Dùng trong MangakaDashboardService.mySeries(): lấy composite score gần nhất.
+     *
+     * @param seriesId ID của series
+     * @return Optional<SeriesMetric> — empty nếu series chưa có metric nào
+     */
+    Optional<SeriesMetric> findFirstBySeriesIdOrderByMonthDesc(Long seriesId);
 }

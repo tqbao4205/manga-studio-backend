@@ -3,6 +3,8 @@ package com.mangaflow.studio.repository.series;
 import com.mangaflow.studio.model.series.InvitationStatus;
 import com.mangaflow.studio.model.series.SeriesAssistant;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -92,4 +94,30 @@ public interface SeriesAssistantRepository extends JpaRepository<SeriesAssistant
      * @param assistantId ID của assistant
      */
     void deleteBySeriesIdAndAssistantId(Long seriesId, Long assistantId);
+
+    // ═══════════════════════════════════════════════════════════
+    //  DASHBOARD STATISTICS — Thêm cho Series Statistics Feature
+    // ═══════════════════════════════════════════════════════════
+
+    /**
+     * Đếm số assistant đã ACCEPTED của 1 mangaka (join qua series).
+     * Dùng trong MangakaDashboardService.overview(): tổng số assistant.
+     */
+    @Query("SELECT COUNT(sa) FROM SeriesAssistant sa " +
+           "WHERE sa.series.mangaka.id = :mangakaId AND sa.status = 'ACCEPTED'")
+    long countAcceptedByMangakaId(@Param("mangakaId") Long mangakaId);
+
+    /**
+     * Đếm số invitation PENDING của 1 mangaka (join qua series).
+     * Dùng trong MangakaDashboardService.overview(): số lời mời chờ phản hồi.
+     */
+    @Query("SELECT COUNT(sa) FROM SeriesAssistant sa " +
+           "WHERE sa.series.mangaka.id = :mangakaId AND sa.status = 'PENDING'")
+    long countPendingByMangakaId(@Param("mangakaId") Long mangakaId);
+
+    /**
+     * Đếm số assistant đã ACCEPTED của 1 series.
+     * Dùng trong MangakaDashboardService.mySeries(): số assistant của từng series.
+     */
+    long countBySeriesIdAndStatus(Long seriesId, InvitationStatus status);
 }

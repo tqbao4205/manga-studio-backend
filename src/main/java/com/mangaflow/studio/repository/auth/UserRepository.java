@@ -58,4 +58,22 @@ public interface UserRepository extends JpaRepository<User, Long> {
             ORDER BY u.displayName, u.username
             """)
     List<User> findByRoleAndSearch(@Param("role") Role role, @Param("search") String search);
+
+    // ═══════════════════════════════════════════════════════════
+    //  DASHBOARD STATISTICS — Thêm cho Series Statistics Feature
+    // ═══════════════════════════════════════════════════════════
+
+    /**
+     * Group user theo role — đếm số lượng mỗi role.
+     * Dùng trong ChiefDashboardService.overview(): lấy số lượng mangaka, assistant, tantou, board member.
+     * Trả về List<Object[]> với mỗi phần tử [role (Role), count (Long)].
+     */
+    @Query("SELECT u.role, COUNT(u) FROM User u GROUP BY u.role")
+    List<Object[]> countByRoleGrouped();
+
+    /**
+     * Đếm số user có một role cụ thể.
+     * Dùng trong ChiefDashboardService: đếm user theo từng role.
+     */
+    long countByRole(Role role);
 }

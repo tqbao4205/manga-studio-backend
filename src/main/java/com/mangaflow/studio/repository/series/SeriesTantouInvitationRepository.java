@@ -78,6 +78,16 @@ public interface SeriesTantouInvitationRepository
     boolean existsBySeriesIdAndTantouIdAndStatus(
             Long seriesId, Long tantouId, InvitationStatus status);
 
+    // ═══════════════════════════════════════════════════════════
+    //  DASHBOARD STATISTICS — Thêm cho Series Statistics Feature
+    // ═══════════════════════════════════════════════════════════
+
+    /**
+     * Đếm số lời mời tantou theo trạng thái.
+     * Dùng trong ChiefDashboardService.pendingActions(): đếm lời mời PENDING.
+     */
+    long countByStatus(InvitationStatus status);
+
     /**
      * Xoá lời mời theo cặp series + tantou.
      * <p>
