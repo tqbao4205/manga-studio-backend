@@ -3,6 +3,7 @@ package com.mangaflow.studio.dto.task.request;
 import com.mangaflow.studio.model.region.RegionType;
 import com.mangaflow.studio.model.task.Priority;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -35,5 +36,6 @@ public class TaskUpdateRequest {
     private String referenceImageUrl;
 
     @Schema(description = "Hạn chót (ISO datetime)", example = "2026-06-05T00:00:00")
+    @Future(message = "Hạn chót phải ở tương lai")
     private LocalDateTime dueDate;
 }

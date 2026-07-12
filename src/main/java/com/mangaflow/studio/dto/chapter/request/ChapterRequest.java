@@ -1,6 +1,7 @@
 package com.mangaflow.studio.dto.chapter.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import java.time.LocalDate;
@@ -17,5 +18,6 @@ public class ChapterRequest {
     private String title;
 
     @Schema(description = "Hạn chót", example = "2026-06-15")
+    @Future(message = "Hạn chót phải ở tương lai")
     private LocalDate deadline;
 }
