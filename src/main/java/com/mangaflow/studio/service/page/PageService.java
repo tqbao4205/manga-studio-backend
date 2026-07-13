@@ -25,6 +25,9 @@ import java.awt.image.BufferedImage;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -94,6 +97,8 @@ public class PageService {
      * chapterService: Service xử lý Chapter — dùng để recalculateProgress.
      */
     private final ChapterService chapterService;
+
+    private final ExecutorService uploadExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     // ════════════════════════════════════════════════════════════════
     // 1. GET PAGES BY CHAPTER — Lấy danh sách pages
@@ -226,28 +231,72 @@ public class PageService {
      */
     public List<PageResponse> uploadPagesBatch(Long chapterId,
                                                 List<MultipartFile> files) {
-        // ── Bước 1: Tính pageNumber bắt đầu ──
         List<Page> chapterPages = pageRepository.findByChapterIdOrderByPageNumberAsc(chapterId);
+        int nextPageNumber = chapterPages.isEmpty() ? 1
+                : chapterPages.get(chapterPages.size() - 1).getPageNumber() + 1;
 
-        int nextPageNumber;
-        if (chapterPages.isEmpty()) {
-            nextPageNumber = 1;
-        } else {
-            Page lastPage = chapterPages.get(chapterPages.size() - 1);
-            nextPageNumber = lastPage.getPageNumber() + 1;
+        if (nextPageNumber + files.size() > 1000) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "Cannot upload more than 1000 pages per chapter");
         }
 
-        // ── Bước 2: Upload từng file với pageNumber tăng dần ──
-        List<PageResponse> results = new ArrayList<>();
-
+        List<Page> savedPages = new ArrayList<>();
         for (int i = 0; i < files.size(); i++) {
-            PageResponse response = uploadPage(
-                    chapterId, files.get(i), nextPageNumber + i);
-            results.add(response);
+            int pageNumber = nextPageNumber + i;
+            if (pageRepository.existsByChapterIdAndPageNumber(chapterId, pageNumber)) {
+                throw new AppException(HttpStatus.BAD_REQUEST,
+                        "Page number " + pageNumber + " already exists in this chapter");
+            }
+            Page page = Page.builder()
+                    .chapterId(chapterId)
+                    .pageNumber(pageNumber)
+                    .status(PageStatus.UPLOADED)
+                    .originalImageUrl("")
+                    .webImageUrl("")
+                    .thumbnailUrl("")
+                    .publicId("pending")
+                    .width(0)
+                    .height(0)
+                    .build();
+            savedPages.add(pageRepository.save(page));
         }
 
-        // ── Bước 3: Trả về danh sách pages vừa tạo ──
-        return results;
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+        for (int i = 0; i < files.size(); i++) {
+            final int idx = i;
+            final MultipartFile file = files.get(idx);
+            final Page savedPage = savedPages.get(idx);
+            futures.add(CompletableFuture.runAsync(() -> {
+                try {
+                    CloudinaryService.UploadResult result = cloudinaryService.uploadPage(
+                            file, chapterId, savedPage.getId());
+                    savedPage.setOriginalImageUrl(result.getOriginalImageUrl());
+                    savedPage.setWebImageUrl(result.getWebImageUrl());
+                    savedPage.setThumbnailUrl(result.getThumbnailUrl());
+                    savedPage.setPublicId(result.getPublicId());
+                    savedPage.setWidth(result.getWidth());
+                    savedPage.setHeight(result.getHeight());
+                } catch (Exception e) {
+                    throw new RuntimeException(
+                            "Failed to upload page " + (nextPageNumber + idx), e);
+                }
+            }, uploadExecutor));
+        }
+
+        try {
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        } catch (Exception e) {
+            for (Page p : savedPages) {
+                if (!"pending".equals(p.getPublicId())) {
+                    try { cloudinaryService.deleteImage(p.getPublicId()); } catch (Exception ignored) {}
+                }
+                pageRepository.delete(p);
+            }
+            throw new RuntimeException("Batch upload failed. All pages have been rolled back.", e);
+        }
+
+        pageRepository.saveAll(savedPages);
+        chapterService.recalculateProgress(chapterId);
+        return savedPages.stream().map(pageMapper::toResponse).toList();
     }
 
     // ════════════════════════════════════════════════════════════════
