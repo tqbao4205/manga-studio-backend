@@ -777,7 +777,7 @@ public class CloudinaryService {
                     file.getBytes(),
                     ObjectUtils.asMap(
                             "folder", folder,
-                            "public_id", publicId,
+                            "public_id", "sketch_" + index,
                             "resource_type", "image",
                             "overwrite", true
                     )
@@ -855,7 +855,7 @@ public class CloudinaryService {
                     file.getBytes(),
                     ObjectUtils.asMap(
                             "folder", folder,
-                            "public_id", publicId,
+                            "public_id", "v" + index,
                             "resource_type", "image",
                             "overwrite", true
                     )

@@ -5,11 +5,14 @@ import com.mangaflow.studio.common.security.CustomUserDetails;
 import com.mangaflow.studio.dto.schedule.mapper.ScheduleMapper;
 import com.mangaflow.studio.dto.schedule.request.CreateScheduleRequest;
 import com.mangaflow.studio.dto.schedule.response.ScheduleResponse;
+import com.mangaflow.studio.model.chapter.Chapter;
+import com.mangaflow.studio.model.chapter.ChapterStatus;
 import com.mangaflow.studio.model.schedule.PublicationSchedule;
 import com.mangaflow.studio.model.schedule.ScheduleStatus;
 import com.mangaflow.studio.model.schedule.ScheduleType;
 import com.mangaflow.studio.model.series.Series;
 import com.mangaflow.studio.model.series.SeriesStatus;
+import com.mangaflow.studio.repository.chapter.ChapterRepository;
 import com.mangaflow.studio.repository.schedule.PublicationScheduleRepository;
 import com.mangaflow.studio.repository.series.SeriesRepository;
 import com.mangaflow.studio.service.common.WebSocketService;
@@ -43,6 +46,7 @@ public class PublicationScheduleService {
 
     private final PublicationScheduleRepository scheduleRepository;
     private final SeriesRepository seriesRepository;
+    private final ChapterRepository chapterRepository;
     private final ScheduleMapper scheduleMapper;
     private final WebSocketService webSocketService;
     private final NotificationService notificationService;
@@ -133,8 +137,9 @@ public class PublicationScheduleService {
         // Bước 4: Validate request
         validateScheduleRequest(request);
 
-        // Bước 5 + 6: Map và save
+        // Bước 5 + 6: Map và save (tự động tính nextChapterNumber)
         PublicationSchedule schedule = scheduleMapper.toEntity(request, series);
+        schedule.setNextChapterNumber(calculateNextChapterNumber(seriesId));
         schedule = scheduleRepository.save(schedule);
 
         // Bước 7: Gửi thông báo cho mangaka
@@ -221,6 +226,7 @@ public class PublicationScheduleService {
 
         scheduleMapper.updateEntity(schedule, request);
         schedule.setMissCount(0); // Reset missCount khi đổi lịch
+        schedule.setNextChapterNumber(calculateNextChapterNumber(schedule.getSeries().getId()));
 
         schedule = scheduleRepository.save(schedule);
         return scheduleMapper.toResponse(schedule);
@@ -362,5 +368,35 @@ public class PublicationScheduleService {
             throw new AppException(HttpStatus.BAD_REQUEST,
                     "dayOfMonth must be between 1 and 31");
         }
+    }
+
+    /**
+     * calculateNextChapterNumber: Tự động tính nextChapterNumber dựa vào chapters hiện có.
+     * <p>
+     * ═══════════════════════════════════════════════════
+     *  Ưu tiên 1: Chapter APPROVED nhỏ nhất (chờ publish)
+     *  Ưu tiên 2: Chapter lớn nhất + 1 (mangaka cần tạo)
+     *  Fallback:  1 (chưa có chapter nào)
+     * ═══════════════════════════════════════════════════
+     *
+     * @param seriesId ID của series
+     * @return Số chapter tiếp theo cần publish
+     */
+    private Integer calculateNextChapterNumber(Long seriesId) {
+        List<Chapter> chapters = chapterRepository.findBySeriesIdOrderByChapterNumberAsc(seriesId);
+
+        Integer minApproved = chapters.stream()
+                .filter(c -> c.getStatus() == ChapterStatus.APPROVED)
+                .map(Chapter::getChapterNumber)
+                .min(Integer::compareTo)
+                .orElse(null);
+
+        if (minApproved != null) return minApproved;
+
+        return chapters.stream()
+                .map(Chapter::getChapterNumber)
+                .max(Integer::compareTo)
+                .map(max -> max + 1)
+                .orElse(1);
     }
 }

@@ -45,6 +45,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * ── TaskService ──
@@ -97,6 +100,8 @@ public class TaskService {
     private final CloudinaryService cloudinaryService;
     private final LayerService layerService;
     private final NotificationService notificationService;
+
+    private final ExecutorService uploadExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     // ════════════════════════════════════════════════════════════════
     // 1. GET TASKS — Danh sách tasks (có filter + phân trang)
@@ -831,16 +836,20 @@ public class TaskService {
 
         Long userId = currentUser.getUserId();
 
-        // ── Bước 5: Upload result image lên Cloudinary ──
-        CloudinaryService.UploadResult uploadResult = cloudinaryService.uploadTaskImage(
-                resultImage, userId, taskId, nextVersion);
+        // ── Bước 5: Upload result image + source file song song ──
+        CompletableFuture<CloudinaryService.UploadResult> resultFuture = CompletableFuture.supplyAsync(() ->
+                cloudinaryService.uploadTaskImage(resultImage, userId, taskId, nextVersion), uploadExecutor);
 
-        // ── Bước 6: Upload source file lên Cloudinary (nếu có) ──
-        String sourceFileUrl = null;
+        CompletableFuture<String> sourceFuture;
         if (sourceFile != null && !sourceFile.isEmpty()) {
-            sourceFileUrl = cloudinaryService.uploadTaskRawFile(
-                    sourceFile, userId, taskId, nextVersion);
+            sourceFuture = CompletableFuture.supplyAsync(() ->
+                    cloudinaryService.uploadTaskRawFile(sourceFile, userId, taskId, nextVersion), uploadExecutor);
+        } else {
+            sourceFuture = CompletableFuture.completedFuture(null);
         }
+
+        CloudinaryService.UploadResult uploadResult = resultFuture.join();
+        String sourceFileUrl = sourceFuture.join();
 
         // ── Bước 7: Tạo TaskSubmission entity ──
         TaskSubmission submission = TaskSubmission.builder()

@@ -2,6 +2,7 @@ package com.mangaflow.studio.controller.series;
 
 import com.mangaflow.studio.common.security.CustomUserDetails;
 import com.mangaflow.studio.dto.series.request.CharacterRequest;
+import com.mangaflow.studio.dto.series.request.CharactersBatchRequest;
 import com.mangaflow.studio.dto.series.response.CharacterResponse;
 import com.mangaflow.studio.service.series.CharacterService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -54,6 +55,20 @@ public class CharacterController {
             @AuthenticationPrincipal CustomUserDetails user) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(characterService.create(seriesId, request, files, user));
+    }
+
+    @Operation(summary = "Tạo nhiều characters",
+               description = "Mangaka tạo nhiều characters trong 1 request. Gửi multipart/form-data với 'batchRequest' (JSON chứa mảng characters + fileCount cho mỗi character) + 'files' (ảnh sketch theo thứ tự).")
+    @ApiResponse(responseCode = "201", description = "Tạo characters thành công")
+    @PostMapping(value = "/batch", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('MANGAKA')")
+    public ResponseEntity<List<CharacterResponse>> createBatch(
+            @PathVariable Long seriesId,
+            @RequestPart("batchRequest") @Valid CharactersBatchRequest batchRequest,
+            @RequestParam(value = "files", required = false) List<MultipartFile> allFiles,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(characterService.createBatch(seriesId, batchRequest, allFiles, user));
     }
 
     @Operation(summary = "Cập nhật character",

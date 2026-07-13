@@ -16,6 +16,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * ── SeriesStoryProfileService ──
@@ -43,6 +46,7 @@ public class SeriesStoryProfileService {
 
     private final SeriesRepository seriesRepository;
     private final CloudinaryService cloudinaryService;
+    private final ExecutorService uploadExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     // ════════════════════════════════════════════════════════════
     // 1. GET STORY PROFILE — Đọc thông tin world lore + roadmap + refs
@@ -135,23 +139,31 @@ public class SeriesStoryProfileService {
             List<String> removedUrls = series.getVisualRefUrls().stream()
                     .filter(url -> !request.getPreservedVisualRefUrls().contains(url))
                     .toList();
+            List<CompletableFuture<Void>> deleteFutures = new ArrayList<>();
             for (String url : removedUrls) {
-                cloudinaryService.deleteImageByUrl(url);
+                deleteFutures.add(CompletableFuture.runAsync(
+                        () -> cloudinaryService.deleteImageByUrl(url), uploadExecutor));
             }
+            deleteFutures.forEach(CompletableFuture::join);
         }
 
         // Upload files mới (nếu có) — append vào cuối danh sách
         if (files != null && !files.isEmpty()) {
-            int totalAfterUpload = finalRefUrls.size() + files.size();
-            // Không giới hạn số lượng visual refs (khác character: max 5)
+            int baseIndex = finalRefUrls.size();
+            List<CompletableFuture<String>> uploadFutures = new ArrayList<>();
             for (int i = 0; i < files.size(); i++) {
+                final int idx = i;
                 MultipartFile file = files.get(i);
                 if (!file.isEmpty()) {
-                    String url = cloudinaryService.uploadVisualRef(
-                            file, seriesId, finalRefUrls.size());
-                    finalRefUrls.add(url);
+                    uploadFutures.add(CompletableFuture.supplyAsync(() ->
+                            cloudinaryService.uploadVisualRef(file, seriesId, baseIndex + idx),
+                            uploadExecutor));
                 }
             }
+            List<String> newUrls = uploadFutures.stream()
+                    .map(CompletableFuture::join)
+                    .toList();
+            finalRefUrls.addAll(newUrls);
         }
 
         // Nếu có thay đổi refs → ghi đè
