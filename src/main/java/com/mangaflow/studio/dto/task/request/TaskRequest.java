@@ -3,6 +3,7 @@ package com.mangaflow.studio.dto.task.request;
 import com.mangaflow.studio.model.region.RegionType;
 import com.mangaflow.studio.model.task.Priority;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -109,5 +110,6 @@ public class TaskRequest {
      * Nếu gửi → phải ở tương lai (validate ở Service).
      */
     @Schema(description = "Hạn chót (ISO datetime)", example = "2026-06-05T00:00:00")
+    @Future(message = "Hạn chót phải ở tương lai")
     private LocalDateTime dueDate;
 }

@@ -78,6 +78,11 @@ public class MeetingService {
         User creator = userRepository.findById(user.getUserId())
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "User not found"));
 
+        if (request.getStartedAt().isBefore(LocalDateTime.now())) {
+            throw new AppException(HttpStatus.BAD_REQUEST,
+                    "Thời gian họp phải ở tương lai");
+        }
+
         // Tạo cuộc họp
         SeriesMeeting meeting = SeriesMeeting.builder()
                 .series(series)

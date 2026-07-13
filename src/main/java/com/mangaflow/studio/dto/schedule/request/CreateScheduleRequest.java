@@ -1,6 +1,7 @@
 package com.mangaflow.studio.dto.schedule.request;
 
 import com.mangaflow.studio.model.schedule.ScheduleType;
+import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -54,5 +55,6 @@ public class CreateScheduleRequest {
      * Bắt buộc.
      */
     @NotNull(message = "Start date is required")
+    @FutureOrPresent(message = "Start date must be today or in the future")
     private LocalDate startDate;
 }

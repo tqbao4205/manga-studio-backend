@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -276,7 +277,13 @@ public class ChapterService {
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND,
                         "Series not found or not owned by you"));
 
-        // ── Bước 2: Uniqueness check ──
+        // ── Bước 2: Deadline check ──
+        if (request.getDeadline() != null && request.getDeadline().isBefore(LocalDate.now())) {
+            throw new AppException(HttpStatus.BAD_REQUEST,
+                    "Hạn chót phải ở tương lai");
+        }
+
+        // ── Bước 3: Uniqueness check ──
         // Đảm bảo không có 2 chapter trùng số trong cùng 1 series
         // existsBy...() → SELECT EXISTS(SELECT 1 FROM chapter WHERE ...)
         // → Nhanh hơn findAll() vì chỉ trả về true/false
@@ -365,7 +372,13 @@ public class ChapterService {
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND,
                         "Chapter not found or not owned by you"));
 
-        // ── Bước 2: MapStruct null-safe update ──
+        // ── Bước 2: Deadline check ──
+        if (request.getDeadline() != null && request.getDeadline().isBefore(LocalDate.now())) {
+            throw new AppException(HttpStatus.BAD_REQUEST,
+                    "Hạn chót phải ở tương lai");
+        }
+
+        // ── Bước 3: MapStruct null-safe update ──
         // updateEntity() chỉ set field KHÁC NULL trong request
         // Field null → bỏ qua, giữ nguyên giá trị cũ
         // → Không cần viết: if (title != null) chapter.setTitle(title)

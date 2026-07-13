@@ -1,6 +1,7 @@
 package com.mangaflow.studio.dto.meeting;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -28,6 +29,8 @@ public class CreateMeetingRequest {
     private String meetingLink;
 
     @Schema(description = "Thời gian họp dự kiến (ISO datetime)", example = "2026-06-15T10:00:00")
+    @NotNull(message = "Thời gian họp là bắt buộc")
+    @Future(message = "Thời gian họp phải ở tương lai")
     private LocalDateTime startedAt;
 
     @Schema(description = "Danh sách user ID được mời tham dự", example = "[2, 3, 4]")
