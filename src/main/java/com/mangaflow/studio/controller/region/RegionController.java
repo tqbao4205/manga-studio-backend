@@ -50,7 +50,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
-@Tag(name = "Regions", description = "Quản lý regions (vùng vẽ trên page)")
+@Tag(name = "4. Task Collaboration")
 public class RegionController {
 
     /**

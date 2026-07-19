@@ -38,7 +38,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
-@Tag(name = "Users", description = "Thông tin người dùng — danh sách ASSISTANT để mời")
+@Tag(name = "4. Task Collaboration")
 public class UserController {
 
     private final UserRepository userRepository;

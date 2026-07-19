@@ -62,7 +62,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
-@Tag(name = "Layers", description = "Quản lý layers — layer là 1 lớp đồ hoạ chồng lên Page (giống layer trong Photoshop)")
+@Tag(name = "4. Task Collaboration")
 public class LayerController {
 
     private final LayerService layerService;

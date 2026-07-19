@@ -37,7 +37,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/assistants/invitations")
 @RequiredArgsConstructor
-@Tag(name = "Assistant - Invitations", description = "ASSISTANT xem và phản hồi lời mời tham gia series")
+@Tag(name = "4. Task Collaboration")
 public class AssistantInvitationController {
 
     private final SeriesAssistantService seriesAssistantService;

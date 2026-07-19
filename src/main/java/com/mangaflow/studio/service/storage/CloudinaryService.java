@@ -779,7 +779,9 @@ public class CloudinaryService {
                             "folder", folder,
                             "public_id", "sketch_" + index,
                             "resource_type", "image",
-                            "overwrite", true
+                            "overwrite", true,
+                            "quality", "auto:good",
+                            "fetch_format", "auto"
                     )
             );
 

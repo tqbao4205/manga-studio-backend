@@ -86,7 +86,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
-@Tag(name = "Pages", description = "Quản lý pages (trang truyện) — upload, import batch, sắp xếp, xoá")
 public class PageController {
 
     /**
@@ -125,6 +124,7 @@ public class PageController {
      * @return 200 OK + danh sách pages (JSON array)
      * @response 401 — Chưa đăng nhập
      */
+    @Tag(name = "1. Series Creation")
     @Operation(
             summary = "Lấy danh sách pages của 1 chapter",
             description = "Trả về tất cả pages trong chapter, sắp xếp theo pageNumber tăng dần. Tất cả user đã đăng nhập đều xem được."
@@ -173,6 +173,7 @@ public class PageController {
      * @response 400 — Page number đã tồn tại trong chapter này
      * @response 403 — Không có quyền (chỉ MANGAKA)
      */
+    @Tag(name = "1. Series Creation")
     @Operation(
             summary = "Upload 1 page",
             description = "Upload 1 file ảnh lên Cloudinary và tạo page record trong database. Chỉ MANGAKA mới được dùng."
@@ -236,6 +237,7 @@ public class PageController {
      * @return 201 CREATED + danh sách PageResponse
      * @response 403 — Không có quyền (chỉ MANGAKA)
      */
+    @Tag(name = "1. Series Creation")
     @Operation(
             summary = "Import nhiều pages cùng lúc",
             description = "Upload nhiều file ảnh cùng 1 lúc. Backend tự động gán pageNumber theo thứ tự files (lấy max + 1 từ chapter). Chỉ MANGAKA mới được dùng."
@@ -287,6 +289,7 @@ public class PageController {
      * @response 404 — Không tìm thấy page
      * @response 403 — Không có quyền (chỉ MANGAKA)
      */
+    @Tag(name = "1. Series Creation")
     @Operation(
             summary = "Xoá 1 page",
             description = "Xoá page khỏi database và xoá ảnh trên Cloudinary. Chỉ MANGAKA mới được dùng."
@@ -335,6 +338,7 @@ public class PageController {
      * @response 404 — Không tìm thấy page
      * @response 403 — Không có quyền (chỉ MANGAKA)
      */
+    @Tag(name = "1. Series Creation")
     @Operation(
             summary = "Đổi số thứ tự 1 page",
             description = "Đổi số thứ tự của 1 page. Nếu số mới đã có page khác, backend tự động đẩy các page đó lên/xuống. Chỉ MANGAKA mới được dùng."
@@ -390,6 +394,7 @@ public class PageController {
      * @response 400 — Số lượng pageIds không khớp với tổng số pages trong chapter
      * @response 403 — Không có quyền (chỉ MANGAKA)
      */
+    @Tag(name = "1. Series Creation")
     @Operation(
             summary = "Batch reorder pages (dùng cho kéo thả)",
             description = "Sắp xếp lại toàn bộ pages trong chapter theo thứ tự mới. Frontend gửi mảng pageIds theo thứ tự sau khi kéo thả. VD: gửi [3,1,2] nghĩa là page 3 thành số 1, page 1 thành số 2, page 2 thành số 3."
@@ -441,6 +446,7 @@ public class PageController {
      * @response 403 — Không có quyền (chỉ MANGAKA)
      * @response 500 — Lỗi composite hoặc upload Cloudinary
      */
+    @Tag(name = "4. Task Collaboration")
     @Operation(
             summary = "Merge layers into final image",
             description = "Composite tất cả visible layers của page thành 1 ảnh duy nhất. Upload lên Cloudinary và lưu URL vào page.finalImageUrl."
@@ -489,6 +495,7 @@ public class PageController {
      * @response 404 — Không tìm thấy page
      * @response 500 — Lỗi composite hoặc upload Cloudinary
      */
+    @Tag(name = "4. Task Collaboration")
     @Operation(
             summary = "Flatten layers — merge + replace original + delete layers",
             description = "Gộp tất cả visible layers vào ảnh nền, ghi đè originalImageUrl bằng kết quả, xoá toàn bộ layers."
@@ -514,6 +521,7 @@ public class PageController {
     // 9. UPDATE PAGE STATUS — Đánh dấu page hoàn thành
     // ════════════════════════════════════════════════════════════════
 
+    @Tag(name = "5. Chapter Review")
     @Operation(
             summary = "Cập nhật trạng thái page",
             description = "Cập nhật trạng thái của 1 page (VD: đánh dấu COMPLETED). " +

@@ -41,7 +41,7 @@ import java.util.List;
  */
 @RestController
 @RequiredArgsConstructor
-@Tag(name = "Tantou - Invitations", description = "Quản lý lời mời TANTOU_EDITOR kiểm duyệt series")
+@Tag(name = "2. Series Review")
 public class TantouInvitationController {
 
     private final SeriesTantouInvitationService seriesTantouInvitationService;

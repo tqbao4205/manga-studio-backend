@@ -31,7 +31,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/ranking")
 @RequiredArgsConstructor
-@Tag(name = "Ranking", description = "API xếp hạng series — WEEKLY và MONTHLY")
+@Tag(name = "6. Publication & Ranking")
 public class SeriesRankingController {
 
     private final SeriesRankingService rankingService;

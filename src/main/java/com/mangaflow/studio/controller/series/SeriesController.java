@@ -40,7 +40,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/series")
 @RequiredArgsConstructor
-@Tag(name = "Series", description = "API quản lý series và quy trình duyệt")
 public class SeriesController {
 
     private final SeriesService seriesService;
@@ -48,6 +47,7 @@ public class SeriesController {
     private final SeriesWorkflowService seriesWorkflowService;
     private final ReaderFeedbackService readerFeedbackService;
 
+    @Tag(name = "1. Series Creation")
     @Operation(summary = "Danh sách series",
                description = "Lấy danh sách series với filter theo status, genre, search và phân trang.")
     @GetMapping
@@ -64,12 +64,14 @@ public class SeriesController {
         return ResponseEntity.ok(seriesService.getAll(status, genre, targetDemographic, search, pageable, user));
     }
 
+    @Tag(name = "1. Series Creation")
     @Operation(summary = "Chi tiết series", description = "Xem thông tin chi tiết của 1 series.")
     @GetMapping("/{id}")
     public ResponseEntity<SeriesResponse> getById(@PathVariable Long id) {
         return ResponseEntity.ok(seriesService.getById(id));
     }
 
+    @Tag(name = "1. Series Creation")
     @Operation(summary = "Tạo series mới",
                description = "Mangaka tạo series mới. Gửi multipart/form-data với phần 'series' (JSON) + 'file' (ảnh bìa).")
     @ApiResponses({
@@ -94,6 +96,7 @@ public class SeriesController {
                 .body(seriesService.create(request, file, user));
     }
 
+    @Tag(name = "1. Series Creation")
     @Operation(summary = "Cập nhật series",
                description = "Mangaka cập nhật thông tin series. File ảnh bìa là tuỳ chọn.")
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -110,6 +113,7 @@ public class SeriesController {
         return ResponseEntity.ok(seriesService.update(id, request, file, user));
     }
 
+    @Tag(name = "1. Series Creation")
     @Operation(summary = "Xoá series", description = "Mangaka xoá series (chỉ khi series đang ở DRAFT).")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('MANGAKA')")
@@ -120,6 +124,7 @@ public class SeriesController {
         return ResponseEntity.noContent().build();
     }
 
+    @Tag(name = "2. Series Review")
     @Operation(summary = "Gửi cho Tantou Editor duyệt",
                description = "Mangaka gửi series cho Tantou Editor phê duyệt. " +
                            "Series phải ở trạng thái DRAFT và đã có tantouEditor được chỉ định.")
@@ -135,6 +140,7 @@ public class SeriesController {
         return ResponseEntity.ok(seriesWorkflowService.submitToTantou(id, user));
     }
 
+    @Tag(name = "2. Series Review")
     @Operation(summary = "Tantou Editor đồng ý",
                description = "Tantou Editor đồng ý với bản thảo, chuyển series lên PENDING_BOARD_VOTE " +
                            "để chờ Chief Editor tạo cuộc họp.")
@@ -151,6 +157,7 @@ public class SeriesController {
         return ResponseEntity.ok(seriesWorkflowService.tantouApprove(id, user));
     }
 
+    @Tag(name = "2. Series Review")
     @Operation(summary = "Tantou Editor từ chối",
                description = "Tantou Editor từ chối bản thảo, series quay về DRAFT để Mangaka sửa lại.")
     @ApiResponses({
@@ -166,6 +173,7 @@ public class SeriesController {
         return ResponseEntity.ok(seriesWorkflowService.tantouReject(id, user));
     }
 
+    @Tag(name = "3. Board Review & Publication")
     @Operation(summary = "Chuyển trạng thái series",
                description = "Chuyển trạng thái series. Chỉ áp dụng cho ONGOING/HIATUS/AT_RISK. " +
                            "Các chuyển đổi: ONGOING ↔ HIATUS, ONGOING → AT_RISK/CANCELLED/COMPLETED, " +
@@ -192,6 +200,7 @@ public class SeriesController {
      * Lấy story profile của series (world lore, roadmap, visual refs).
      * Public — ai cũng xem được.
      */
+    @Tag(name = "1. Series Creation")
     @Operation(summary = "Lấy story profile",
                description = "Lấy world lore, story roadmap và visual references của series.")
     @GetMapping("/{id}/story-profile")
@@ -205,6 +214,7 @@ public class SeriesController {
      * Multipart: "storyProfile" (JSON) + "files" (ảnh visual refs mới, tuỳ chọn).
      * Chỉ MANGAKA mới được gọi.
      */
+    @Tag(name = "1. Series Creation")
     @Operation(summary = "Cập nhật story profile",
                description = "Mangaka cập nhật world lore, story roadmap và visual references. "
                            + "Gửi multipart: storyProfile (JSON) + files (ảnh).")
@@ -242,6 +252,7 @@ public class SeriesController {
      *   cần vào từng chapter. Editorial Board có thể nhập feedback
      *   từ các nguồn (survey, comment, review).
      */
+    @Tag(name = "1. Series Creation")
     @Operation(summary = "Phản hồi độc giả (Reader Feedback)",
                description = "Lấy phản hồi nổi bật từ độc giả cho box Survival Radar. "
                            + "Trả về: highlights (lời khen), topIssues (góp ý), "

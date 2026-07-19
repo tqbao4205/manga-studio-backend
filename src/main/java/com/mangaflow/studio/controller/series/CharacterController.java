@@ -23,7 +23,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/series/{seriesId}/characters")
 @RequiredArgsConstructor
-@Tag(name = "Character", description = "API quản lý nhân vật (character) trong series")
+@Tag(name = "1. Series Creation")
 public class CharacterController {
 
     private final CharacterService characterService;

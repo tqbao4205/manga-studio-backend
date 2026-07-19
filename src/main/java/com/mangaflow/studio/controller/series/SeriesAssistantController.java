@@ -39,7 +39,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/series/{seriesId}/assistants")
 @RequiredArgsConstructor
-@Tag(name = "Series - Assistants", description = "Quản lý ASSISTANT trong series — MANGAKA invite/remove, mọi role xem danh sách")
+@Tag(name = "4. Task Collaboration")
 public class SeriesAssistantController {
 
     private final SeriesAssistantService seriesAssistantService;

@@ -51,7 +51,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
-@Tag(name = "Publication Schedule", description = "Quản lý lịch phát hành định kỳ cho series — WEEKLY / MONTHLY")
+@Tag(name = "3. Board Review & Publication")
 public class ScheduleController {
 
     private final PublicationScheduleService scheduleService;
