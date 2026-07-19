@@ -82,7 +82,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
-@Tag(name = "Chapters", description = "Quản lý chapters — tạo mới, cập nhật, xoá, chuyển trạng thái")
 public class ChapterController {
 
     /**
@@ -127,6 +126,7 @@ public class ChapterController {
      * @return 200 OK + danh sách chapters (JSON array)
      * @response 404 — Không tìm thấy series
      */
+    @Tag(name = "1. Series Creation")
     @Operation(
             summary = "Lấy danh sách chapters của series",
             description = "Trả về tất cả chapters trong series, sắp xếp theo chapterNumber tăng dần. Tất cả user đã đăng nhập đều xem được."
@@ -173,6 +173,7 @@ public class ChapterController {
      * @response 404 — Không tìm thấy chapter
      * @response 401 — Chưa đăng nhập
      */
+    @Tag(name = "1. Series Creation")
     @Operation(
             summary = "Lấy chi tiết chapter",
             description = "Trả về thông tin đầy đủ của một chapter theo ID. Tất cả user đã đăng nhập đều xem được."
@@ -231,6 +232,7 @@ public class ChapterController {
      * @response 404 — Không tìm thấy series hoặc không phải chủ sở hữu
      * @response 403 — Không có quyền (chỉ MANGAKA)
      */
+    @Tag(name = "1. Series Creation")
     @Operation(
             summary = "Tạo chapter mới",
             description = "Tạo chapter mới trong series. Chỉ MANGAKA (chủ sở hữu series) mới được dùng. " +
@@ -283,6 +285,7 @@ public class ChapterController {
      * @return 200 OK + ChapterResponse (đã cập nhật)
      * @response 404 — Không tìm thấy chapter hoặc không phải chủ
      */
+    @Tag(name = "1. Series Creation")
     @Operation(
             summary = "Cập nhật thông tin chapter",
             description = "Cập nhật title, deadline, chapterNumber của chapter. " +
@@ -335,6 +338,7 @@ public class ChapterController {
      * @response 404 — Không tìm thấy chapter hoặc không phải chủ
      * @response 400 — Chapter không ở trạng thái DRAFT
      */
+    @Tag(name = "1. Series Creation")
     @Operation(
             summary = "Xoá chapter",
             description = "Xoá chapter khỏi database. Chỉ xoá được chapter ở trạng thái DRAFT. " +
@@ -362,6 +366,7 @@ public class ChapterController {
     // 5. CHAPTER WORKFLOW — Submit, Approve, Reject, Publish
     // ════════════════════════════════════════════════════════════════
 
+    @Tag(name = "5. Chapter Review")
     @Operation(summary = "Mangaka submit chapter cho Tantou review")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Chapter đã submit thành công"),
@@ -376,6 +381,7 @@ public class ChapterController {
         return ResponseEntity.ok(chapterWorkflowService.submitForReview(id, user));
     }
 
+    @Tag(name = "5. Chapter Review")
     @Operation(summary = "Tantou approve chapter")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Chapter đã được approve"),
@@ -390,6 +396,7 @@ public class ChapterController {
         return ResponseEntity.ok(chapterWorkflowService.tantouApprove(id, user));
     }
 
+    @Tag(name = "5. Chapter Review")
     @Operation(summary = "Tantou yêu cầu revision cho chapter")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Đã yêu cầu revision"),
@@ -404,6 +411,7 @@ public class ChapterController {
         return ResponseEntity.ok(chapterWorkflowService.tantouRequestRevision(id, user));
     }
 
+    @Tag(name = "6. Publication & Ranking")
     @Operation(summary = "EB publish chapter (sau khi tantou đã approve)")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Chapter đã được publish"),

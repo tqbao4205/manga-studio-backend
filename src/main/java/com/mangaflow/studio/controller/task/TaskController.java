@@ -62,7 +62,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
-@Tag(name = "Tasks", description = "Quản lý công việc (Task) — giao việc, nộp bài, duyệt bài")
+@Tag(name = "4. Task Collaboration")
 public class TaskController {
 
     /**

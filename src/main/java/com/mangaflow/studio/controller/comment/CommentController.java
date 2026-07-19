@@ -75,7 +75,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
-@Tag(name = "Comments", description = "Quản lý comments trên page — tạo, reply, resolve, xoá")
+@Tag(name = "2. Series Review")
 public class CommentController {
 
     /**

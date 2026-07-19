@@ -20,7 +20,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
-@Tag(name = "Meeting", description = "API quản lý cuộc họp phê duyệt series")
+@Tag(name = "3. Board Review & Publication")
 public class MeetingController {
 
     private final MeetingService meetingService;

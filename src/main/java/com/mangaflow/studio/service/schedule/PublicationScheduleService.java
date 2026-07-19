@@ -374,8 +374,8 @@ public class PublicationScheduleService {
      * calculateNextChapterNumber: Tự động tính nextChapterNumber dựa vào chapters hiện có.
      * <p>
      * ═══════════════════════════════════════════════════
-     *  Ưu tiên 1: Chapter APPROVED nhỏ nhất (chờ publish)
-     *  Ưu tiên 2: Chapter lớn nhất + 1 (mangaka cần tạo)
+     *  Ưu tiên 1: Chapter chưa PUBLISHED nhỏ nhất
+     *  Ưu tiên 2: Chapter lớn nhất + 1 (tạo chapter mới)
      *  Fallback:  1 (chưa có chapter nào)
      * ═══════════════════════════════════════════════════
      *
@@ -383,15 +383,16 @@ public class PublicationScheduleService {
      * @return Số chapter tiếp theo cần publish
      */
     private Integer calculateNextChapterNumber(Long seriesId) {
-        List<Chapter> chapters = chapterRepository.findBySeriesIdOrderByChapterNumberAsc(seriesId);
+        List<Chapter> chapters = chapterRepository
+                .findBySeriesIdOrderByChapterNumberAsc(seriesId);
 
-        Integer minApproved = chapters.stream()
-                .filter(c -> c.getStatus() == ChapterStatus.APPROVED)
+        Integer minUnpublished = chapters.stream()
+                .filter(c -> c.getStatus() != ChapterStatus.PUBLISHED)
                 .map(Chapter::getChapterNumber)
                 .min(Integer::compareTo)
                 .orElse(null);
 
-        if (minApproved != null) return minApproved;
+        if (minUnpublished != null) return minUnpublished;
 
         return chapters.stream()
                 .map(Chapter::getChapterNumber)

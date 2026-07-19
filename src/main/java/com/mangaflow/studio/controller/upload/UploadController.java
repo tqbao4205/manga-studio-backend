@@ -2,6 +2,7 @@ package com.mangaflow.studio.controller.upload;
 
 import com.mangaflow.studio.common.security.CustomUserDetails;
 import com.mangaflow.studio.service.storage.CloudinaryService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -13,6 +14,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/upload")
 @RequiredArgsConstructor
+@Tag(name = "1. Series Creation")
 public class UploadController {
 
     private final CloudinaryService cloudinaryService;
